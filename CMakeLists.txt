@@ -39,6 +39,15 @@ target_sources(AssistedMixing
         Source/DSP/StereoWidth.cpp
         Source/DSP/ReverbSend.cpp
         Source/Rules/MixRuleDatabase.cpp
+        Source/Analysis/SpectrumAnalyzer.cpp
+        Source/Analysis/LevelMeter.cpp
+        Source/Analysis/WaveformBuffer.cpp
+        Source/UI/CustomLookAndFeel.cpp
+        Source/UI/EQPanel.cpp
+        Source/UI/CompressorPanel.cpp
+        Source/UI/SaturationPanel.cpp
+        Source/UI/ReverbPanel.cpp
+        Source/UI/GainMixPanel.cpp
 )
 
 target_include_directories(AssistedMixing

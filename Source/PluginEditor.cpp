@@ -1,42 +1,13 @@
 #include "PluginEditor.h"
 
-static constexpr int kHeaderHeight   = 60;
-static constexpr int kRowHeight      = 70;
-static constexpr int kLabelHeight    = 16;
-static constexpr int kKnobSize       = 54;
-static constexpr int kSectionLabelW  = 75;
-static constexpr int kFooterHeight   = 50;
-static constexpr int kMargin         = 6;
+static constexpr int kHeaderHeight = 50;
+static constexpr int kTabBarHeight = 32;
 
-// ============================================================
-// RotarySliderWithLabel
-// ============================================================
-RotarySliderWithLabel::RotarySliderWithLabel(const juce::String& labelText)
-{
-    slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 14);
-    addAndMakeVisible(slider);
-
-    label.setText(labelText, juce::dontSendNotification);
-    label.setJustificationType(juce::Justification::centred);
-    label.setFont(juce::Font(11.0f));
-    label.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-    addAndMakeVisible(label);
-}
-
-void RotarySliderWithLabel::resized()
-{
-    auto area = getLocalBounds();
-    label.setBounds(area.removeFromTop(kLabelHeight));
-    slider.setBounds(area);
-}
-
-// ============================================================
-// AssistedMixingEditor
-// ============================================================
 AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
+    setLookAndFeel(&customLnf);
+
     auto& apvts = processorRef.getAPVTS();
 
     // Genre / Instrument combo boxes
@@ -57,187 +28,61 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     applyRuleButton.addListener(this);
     addAndMakeVisible(applyRuleButton);
 
-    // Knob attachments
-    setupSlider(inputGainSlider,     inputGainAttach,     "inputGain");
-    setupSlider(outputGainSlider,    outputGainAttach,    "outputGain");
+    // Tab buttons
+    juce::StringArray tabNames = { "EQ", "COMP", "SAT", "REVERB", "GAIN/MIX" };
+    for (int i = 0; i < NumTabs; ++i)
+    {
+        tabButtons[(size_t)i].setButtonText(tabNames[i]);
+        tabButtons[(size_t)i].addListener(this);
+        tabButtons[(size_t)i].setClickingTogglesState(false);
+        addAndMakeVisible(tabButtons[(size_t)i]);
+    }
 
-    setupSlider(eqLowFreqSlider,     eqLowFreqAttach,     "eqLowFreq");
-    setupSlider(eqLowGainSlider,     eqLowGainAttach,     "eqLowGain");
-    setupSlider(eqLowMidFreqSlider,  eqLowMidFreqAttach,  "eqLowMidFreq");
-    setupSlider(eqLowMidGainSlider,  eqLowMidGainAttach,  "eqLowMidGain");
-    setupSlider(eqLowMidQSlider,     eqLowMidQAttach,     "eqLowMidQ");
-    setupSlider(eqHighMidFreqSlider, eqHighMidFreqAttach, "eqHighMidFreq");
-    setupSlider(eqHighMidGainSlider, eqHighMidGainAttach, "eqHighMidGain");
-    setupSlider(eqHighMidQSlider,    eqHighMidQAttach,    "eqHighMidQ");
-    setupSlider(eqHighFreqSlider,    eqHighFreqAttach,    "eqHighFreq");
-    setupSlider(eqHighGainSlider,    eqHighGainAttach,    "eqHighGain");
+    // Create panels
+    eqPanel = std::make_unique<EQPanel>(apvts,
+        processorRef.getPreEQAnalyzer(), processorRef.getPostEQAnalyzer(),
+        processorRef.getParametricEQ());
+    addAndMakeVisible(eqPanel.get());
 
-    setupSlider(compThreshSlider,    compThreshAttach,    "compThreshold");
-    setupSlider(compRatioSlider,     compRatioAttach,     "compRatio");
-    setupSlider(compAttackSlider,    compAttackAttach,    "compAttack");
-    setupSlider(compReleaseSlider,   compReleaseAttach,   "compRelease");
-    setupSlider(compMakeupSlider,    compMakeupAttach,    "compMakeup");
+    compPanel = std::make_unique<CompressorPanel>(apvts, processorRef.getCompressor());
+    addAndMakeVisible(compPanel.get());
 
-    setupSlider(satDriveSlider,      satDriveAttach,      "satDrive");
-    setupSlider(satMixSlider,        satMixAttach,        "satMix");
+    satPanel = std::make_unique<SaturationPanel>(apvts,
+        processorRef.getPreSatBuffer(), processorRef.getPostSatBuffer());
+    addAndMakeVisible(satPanel.get());
 
-    setupSlider(stereoWidthSlider,   stereoWidthAttach,   "stereoWidth");
-    setupSlider(reverbSendSlider,    reverbSendAttach,    "reverbSend");
-    setupSlider(mixAmountSlider,     mixAmountAttach,     "mixAmount");
+    reverbPanel = std::make_unique<ReverbPanel>(apvts,
+        processorRef.getDryRevBuffer(), processorRef.getWetRevBuffer());
+    addAndMakeVisible(reverbPanel.get());
 
-    bypassToggle.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
-    addAndMakeVisible(bypassToggle);
-    bypassAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        apvts, "bypass", bypassToggle);
+    gainMixPanel = std::make_unique<GainMixPanel>(apvts,
+        processorRef.getInputMeter(), processorRef.getOutputMeter());
+    addAndMakeVisible(gainMixPanel.get());
 
-    setSize(720, kHeaderHeight + kRowHeight * 6 + kFooterHeight + kMargin * 2);
+    showTab(TabEQ);
+
+    setSize(900, 650);
 }
 
 AssistedMixingEditor::~AssistedMixingEditor()
 {
-    delete inputGainAttach;
-    delete outputGainAttach;
-    delete eqLowFreqAttach;
-    delete eqLowGainAttach;
-    delete eqLowMidFreqAttach;
-    delete eqLowMidGainAttach;
-    delete eqLowMidQAttach;
-    delete eqHighMidFreqAttach;
-    delete eqHighMidGainAttach;
-    delete eqHighMidQAttach;
-    delete eqHighFreqAttach;
-    delete eqHighGainAttach;
-    delete compThreshAttach;
-    delete compRatioAttach;
-    delete compAttackAttach;
-    delete compReleaseAttach;
-    delete compMakeupAttach;
-    delete satDriveAttach;
-    delete satMixAttach;
-    delete stereoWidthAttach;
-    delete reverbSendAttach;
-    delete mixAmountAttach;
+    setLookAndFeel(nullptr);
 }
 
-void AssistedMixingEditor::setupSlider(RotarySliderWithLabel& s,
-                                        juce::AudioProcessorValueTreeState::SliderAttachment*& att,
-                                        const juce::String& paramId)
+void AssistedMixingEditor::showTab(int index)
 {
-    addAndMakeVisible(s);
-    att = new juce::AudioProcessorValueTreeState::SliderAttachment(
-        processorRef.getAPVTS(), paramId, s.getSlider());
-}
+    activeTab = index;
 
-void AssistedMixingEditor::paint(juce::Graphics& g)
-{
-    g.fillAll(juce::Colour(0xff1a1a2e));
+    eqPanel->setVisible(index == TabEQ);
+    compPanel->setVisible(index == TabComp);
+    satPanel->setVisible(index == TabSat);
+    reverbPanel->setVisible(index == TabReverb);
+    gainMixPanel->setVisible(index == TabGainMix);
 
-    // Title bar
-    g.setColour(juce::Colour(0xff16213e));
-    g.fillRect(0, 0, getWidth(), kHeaderHeight);
+    for (int i = 0; i < NumTabs; ++i)
+        tabButtons[(size_t)i].setToggleState(i == index, juce::dontSendNotification);
 
-    g.setColour(juce::Colours::white);
-    g.setFont(juce::Font(22.0f, juce::Font::bold));
-    g.drawText("King Mixer", 10, 0, 200, kHeaderHeight, juce::Justification::centredLeft);
-
-    // Section labels
-    int y = kHeaderHeight + kMargin;
-    drawSectionLabel(g, y, "GAIN");
-    y += kRowHeight;
-    drawSectionLabel(g, y, "EQ");
-    y += kRowHeight * 2;
-    drawSectionLabel(g, y, "COMP");
-    y += kRowHeight;
-    drawSectionLabel(g, y, "SAT / ST / REV");
-    y += kRowHeight;
-
-    // Footer bar
-    g.setColour(juce::Colour(0xff16213e));
-    g.fillRect(0, getHeight() - kFooterHeight, getWidth(), kFooterHeight);
-}
-
-void AssistedMixingEditor::drawSectionLabel(juce::Graphics& g, int y, const juce::String& text)
-{
-    g.setColour(juce::Colour(0xff0f3460));
-    g.fillRoundedRectangle(2.0f, (float)y + 2.0f, (float)kSectionLabelW - 4.0f, (float)kRowHeight - 4.0f, 4.0f);
-    g.setColour(juce::Colour(0xffe94560));
-    g.setFont(juce::Font(11.0f, juce::Font::bold));
-    g.drawFittedText(text, 2, y, kSectionLabelW - 4, kRowHeight, juce::Justification::centred, 2);
-}
-
-void AssistedMixingEditor::resized()
-{
-    auto area = getLocalBounds();
-
-    // Header: combo boxes + apply button
-    auto header = area.removeFromTop(kHeaderHeight);
-    header.removeFromLeft(210);
-    genreBox.setBounds(header.removeFromLeft(130).reduced(4, 16));
-    instrumentBox.setBounds(header.removeFromLeft(150).reduced(4, 16));
-    applyRuleButton.setBounds(header.removeFromLeft(100).reduced(4, 16));
-
-    area.removeFromTop(kMargin);
-
-    int knobW = kKnobSize + kMargin;
-
-    // Row 1: Gain
-    {
-        auto row = area.removeFromTop(kRowHeight);
-        row.removeFromLeft(kSectionLabelW);
-        inputGainSlider.setBounds(row.removeFromLeft(knobW));
-        outputGainSlider.setBounds(row.removeFromLeft(knobW));
-    }
-
-    // Row 2-3: EQ (4 bands, split into two rows)
-    {
-        auto row = area.removeFromTop(kRowHeight);
-        row.removeFromLeft(kSectionLabelW);
-        eqLowFreqSlider.setBounds(row.removeFromLeft(knobW));
-        eqLowGainSlider.setBounds(row.removeFromLeft(knobW));
-        row.removeFromLeft(kMargin);
-        eqLowMidFreqSlider.setBounds(row.removeFromLeft(knobW));
-        eqLowMidGainSlider.setBounds(row.removeFromLeft(knobW));
-        eqLowMidQSlider.setBounds(row.removeFromLeft(knobW));
-    }
-    {
-        auto row = area.removeFromTop(kRowHeight);
-        row.removeFromLeft(kSectionLabelW);
-        eqHighMidFreqSlider.setBounds(row.removeFromLeft(knobW));
-        eqHighMidGainSlider.setBounds(row.removeFromLeft(knobW));
-        eqHighMidQSlider.setBounds(row.removeFromLeft(knobW));
-        row.removeFromLeft(kMargin);
-        eqHighFreqSlider.setBounds(row.removeFromLeft(knobW));
-        eqHighGainSlider.setBounds(row.removeFromLeft(knobW));
-    }
-
-    // Row 4: Compressor
-    {
-        auto row = area.removeFromTop(kRowHeight);
-        row.removeFromLeft(kSectionLabelW);
-        compThreshSlider.setBounds(row.removeFromLeft(knobW));
-        compRatioSlider.setBounds(row.removeFromLeft(knobW));
-        compAttackSlider.setBounds(row.removeFromLeft(knobW));
-        compReleaseSlider.setBounds(row.removeFromLeft(knobW));
-        compMakeupSlider.setBounds(row.removeFromLeft(knobW));
-    }
-
-    // Row 5: Saturation + Stereo + Reverb
-    {
-        auto row = area.removeFromTop(kRowHeight);
-        row.removeFromLeft(kSectionLabelW);
-        satDriveSlider.setBounds(row.removeFromLeft(knobW));
-        satMixSlider.setBounds(row.removeFromLeft(knobW));
-        row.removeFromLeft(kMargin);
-        stereoWidthSlider.setBounds(row.removeFromLeft(knobW));
-        row.removeFromLeft(kMargin);
-        reverbSendSlider.setBounds(row.removeFromLeft(knobW));
-    }
-
-    // Footer: Mix Amount + Bypass
-    auto footer = area.removeFromBottom(kFooterHeight);
-    footer.removeFromLeft(kSectionLabelW);
-    mixAmountSlider.setBounds(footer.removeFromLeft(knobW + 30).withHeight(kFooterHeight));
-    bypassToggle.setBounds(footer.removeFromLeft(80).reduced(4, 12));
+    repaint();
 }
 
 void AssistedMixingEditor::buttonClicked(juce::Button* button)
@@ -246,8 +91,69 @@ void AssistedMixingEditor::buttonClicked(juce::Button* button)
     {
         auto genreIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("genre")->load());
         auto instrIdx = static_cast<int>(processorRef.getAPVTS().getRawParameterValue("instrument")->load());
-
-        processorRef.applyRule(static_cast<Genre>(genreIdx),
-                               static_cast<Instrument>(instrIdx));
+        processorRef.applyRule(static_cast<Genre>(genreIdx), static_cast<Instrument>(instrIdx));
+        return;
     }
+
+    for (int i = 0; i < NumTabs; ++i)
+    {
+        if (button == &tabButtons[(size_t)i])
+        {
+            showTab(i);
+            return;
+        }
+    }
+}
+
+void AssistedMixingEditor::paint(juce::Graphics& g)
+{
+    g.fillAll(KingMixerColours::background);
+
+    // Header
+    g.setColour(KingMixerColours::headerBg);
+    g.fillRect(0, 0, getWidth(), kHeaderHeight);
+
+    g.setColour(KingMixerColours::textBright);
+    g.setFont(juce::Font(24.0f, juce::Font::bold));
+    g.drawText("King Mixer", 12, 0, 180, kHeaderHeight, juce::Justification::centredLeft);
+
+    // Tab bar background
+    int tabY = kHeaderHeight;
+    g.setColour(KingMixerColours::tabInactive);
+    g.fillRect(0, tabY, getWidth(), kTabBarHeight);
+
+    // Active tab highlight
+    int tabW = getWidth() / NumTabs;
+    g.setColour(KingMixerColours::tabActive);
+    g.fillRect(activeTab * tabW, tabY, tabW, kTabBarHeight);
+
+    // Active tab accent line
+    g.setColour(KingMixerColours::accent);
+    g.fillRect(activeTab * tabW, tabY + kTabBarHeight - 3, tabW, 3);
+}
+
+void AssistedMixingEditor::resized()
+{
+    auto area = getLocalBounds();
+
+    // Header
+    auto header = area.removeFromTop(kHeaderHeight);
+    header.removeFromLeft(190);
+    genreBox.setBounds(header.removeFromLeft(130).reduced(4, 12));
+    instrumentBox.setBounds(header.removeFromLeft(155).reduced(4, 12));
+    applyRuleButton.setBounds(header.removeFromLeft(110).reduced(4, 12));
+
+    // Tab bar
+    auto tabBar = area.removeFromTop(kTabBarHeight);
+    int tabW = tabBar.getWidth() / NumTabs;
+    for (int i = 0; i < NumTabs; ++i)
+        tabButtons[(size_t)i].setBounds(tabBar.removeFromLeft(tabW));
+
+    // Panel content
+    auto panelArea = area;
+    eqPanel->setBounds(panelArea);
+    compPanel->setBounds(panelArea);
+    satPanel->setBounds(panelArea);
+    reverbPanel->setBounds(panelArea);
+    gainMixPanel->setBounds(panelArea);
 }
