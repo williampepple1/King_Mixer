@@ -1,18 +1,54 @@
-Welcome to King Mixer - Your Intelligent Mixing Assistant
+Welcome to King Mixer v1.1 - Your Intelligent Mixing Command Center
 
-King Mixer is a VST3 channel strip plugin designed to give you
-professional-quality mix starting points in seconds. Simply select
-your genre and instrument, click Apply Rule, and King Mixer sets
-all the key parameters to match industry-standard mixing practices.
+King Mixer is a professional VST3 channel strip plugin designed to
+deliver world-class mix starting points in seconds. Select your genre
+and instrument, click Apply Rule, and King Mixer configures every
+parameter to match industry-standard mixing practices. Place it on
+every track, then use the Master Bus Controller to manage your
+entire mix from a single window.
 
-WHAT'S INCLUDED:
+FEATURES:
 
-  - 4-Band Parametric EQ (Low Shelf, Low-Mid, High-Mid, High Shelf)
-  - Compressor with Makeup Gain
+  - 8-Band Parametric EQ with interactive draggable nodes
+      7 filter types per band: Peak, Low Shelf, High Shelf,
+      Low Cut, High Cut, Band Pass, Notch
+      Real-time spectrum analyzer (pre/post EQ)
+      Mouse wheel Q control, right-click context menu
+
+  - Compressor with visual feedback
+      Real-time gain reduction meter and timeline
+      Dynamic transfer curve display
+      Threshold, Ratio, Attack, Release, Makeup Gain
+
   - Saturation (analog-style tanh waveshaper)
+      Before/after waveform comparison
+      Waveshaper transfer curve display
+      Drive and Mix controls
+
+  - Advanced Reverb Engine
+      Predelay, Decay, Size, Attack/Shape
+      Hi/Bass Damping with frequency and shelf controls
+      Early and Late Diffusion
+      Modulation (Rate + Depth)
+      Output EQ (High Cut / Low Cut)
+      5 Modes: Concert Hall, Room, Chamber, Cathedral, Plate
+      4 Colors: Clean, 1970s, 1980s, Now
+      Dry/wet waveform overlay and decay ring visualization
+
   - Stereo Width Control (mid-side processing)
-  - Reverb Send
-  - Input / Output Gain Staging
+
+  - Input / Output Gain Staging with stereo VU meters
+
+  - Master Bus Controller
+      Place King Mixer on tracks and on the master bus
+      See all track instances with live level meters
+      Solo (S) and Mute (M) any track from the master
+      Adjust output gain faders per track remotely
+      View key parameters for every track at a glance
+      Editable track names for easy identification
+
+  - 5 Selectable UI Themes
+      Charcoal (default), Midnight, Mocha, Royal Gold, Arctic
 
 SUPPORTED GENRES:
 
@@ -26,10 +62,14 @@ SUPPORTED INSTRUMENTS:
 HOW TO USE:
 
   1. Load King Mixer as a VST3 plugin on any track in your DAW
-  2. Select the Genre and Instrument from the dropdowns
-  3. Click "Apply Rule" to load recommended settings
-  4. Fine-tune any knob to taste
-  5. Use the Mix knob to blend between dry and processed signal
+  2. Give each instance a name (click the track name in the header)
+  3. Select the Genre and Instrument from the dropdowns
+  4. Click "Apply Rule" to load recommended settings
+  5. Fine-tune using the interactive EQ, compressor, saturation,
+     reverb, and gain controls across the tabbed interface
+  6. For master bus control: place King Mixer on the master bus,
+     enable the "Master" toggle, and open the MASTER tab to see
+     and control all track instances from one place
 
 64 curated mix presets (8 genres x 8 instruments) are built in,
 each one crafted from professional mixing best practices.
