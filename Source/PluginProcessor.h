@@ -77,6 +77,7 @@ public:
     void setTrackName(const juce::String& name);
     InstanceParamSnapshot buildParamSnapshot() const;
     void applyParamSnapshot(const InstanceParamSnapshot& snap);
+    bool consumePendingPush();
 
 private:
     juce::AudioProcessorValueTreeState apvts;
@@ -142,7 +143,12 @@ private:
     std::atomic<bool> masterBusMode{ false };
     juce::String trackName{ "Track" };
     uint32_t lastMasterPushVersion = 0;
+    int snapshotPushCounter = 0;
 
-    JUCE_DECLARE_WEAK_REFERENCEABLE(AssistedMixingProcessor)
+    // Pending master push — consumed on message thread by the editor timer
+    juce::SpinLock pendingPushLock;
+    InstanceParamSnapshot pendingPush;
+    std::atomic<bool> hasPendingPush{ false };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AssistedMixingProcessor)
 };

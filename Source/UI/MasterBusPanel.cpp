@@ -28,7 +28,6 @@ void MasterBusPanel::timerCallback()
         s.levels = v.levels;
         s.solo = v.solo;
         s.mute = v.mute;
-        s.alive = v.alive;
         s.selected = (v.slotId == selectedSlot);
         if (s.selected) selectedStillAlive = true;
         strips.push_back(s);

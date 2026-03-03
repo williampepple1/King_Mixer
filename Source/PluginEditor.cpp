@@ -91,11 +91,18 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     showTab(TabEQ);
 
     setSize(900, 650);
+    startTimerHz(30);
 }
 
 AssistedMixingEditor::~AssistedMixingEditor()
 {
+    stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void AssistedMixingEditor::timerCallback()
+{
+    processorRef.consumePendingPush();
 }
 
 void AssistedMixingEditor::applyTheme(int themeIndex)

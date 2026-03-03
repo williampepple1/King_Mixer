@@ -29,7 +29,6 @@ private:
         InstanceLevelSnapshot levels;
         bool solo = false;
         bool mute = false;
-        bool alive = false;
         bool selected = false;
 
         juce::Rectangle<int> bounds;

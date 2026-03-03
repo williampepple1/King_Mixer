@@ -6,7 +6,6 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
-#include <functional>
 
 static constexpr int kMaxInstances = 64;
 
@@ -44,26 +43,6 @@ struct InstanceLevelSnapshot
     float gainReductionDB = 0.f;
 };
 
-struct InstanceInfo
-{
-    std::atomic<bool> alive{ false };
-    juce::String trackName;
-    bool isMaster = false;
-
-    std::atomic<uint32_t> paramVersion{ 0 };
-    InstanceParamSnapshot params;
-    InstanceLevelSnapshot levels;
-
-    std::atomic<bool> soloFromMaster{ false };
-    std::atomic<bool> muteFromMaster{ false };
-
-    std::atomic<uint32_t> masterPushVersion{ 0 };
-    InstanceParamSnapshot masterPushedParams;
-    std::atomic<bool> hasMasterPush{ false };
-
-    void* processorPtr = nullptr;
-};
-
 class InstanceHub
 {
 public:
@@ -73,89 +52,110 @@ public:
         return hub;
     }
 
-    int registerInstance(void* processorPtr, const juce::String& name, bool isMaster)
+    int registerInstance(const juce::String& name, bool isMaster)
     {
-        std::lock_guard<std::mutex> lock(mtx);
+        const juce::SpinLock::ScopedLockType lock(spinLock);
         for (int i = 0; i < kMaxInstances; ++i)
         {
-            if (!slots[i].alive.load())
+            if (!alive[i].load(std::memory_order_acquire))
             {
-                slots[i].alive.store(true);
-                slots[i].trackName = name;
-                slots[i].isMaster = isMaster;
-                slots[i].processorPtr = processorPtr;
-                slots[i].soloFromMaster.store(false);
-                slots[i].muteFromMaster.store(false);
-                slots[i].hasMasterPush.store(false);
-                slots[i].paramVersion.store(0);
-                slots[i].masterPushVersion.store(0);
+                trackNames[i] = name;
+                isMasterFlags[i] = isMaster;
+                soloFlags[i].store(false, std::memory_order_relaxed);
+                muteFlags[i].store(false, std::memory_order_relaxed);
+                hasPush[i].store(false, std::memory_order_relaxed);
+                pushVersions[i].store(0, std::memory_order_relaxed);
+                paramVersions[i].store(0, std::memory_order_relaxed);
+                alive[i].store(true, std::memory_order_release);
                 return i;
             }
         }
         return -1;
     }
 
-    void unregisterInstance(int slotId)
+    void unregisterInstance(int id)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        std::lock_guard<std::mutex> lock(mtx);
-        slots[slotId].alive.store(false);
-        slots[slotId].processorPtr = nullptr;
-        slots[slotId].trackName.clear();
+        if (!isValid(id)) return;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        alive[id].store(false, std::memory_order_release);
+        trackNames[id].clear();
     }
 
-    void updateTrackName(int slotId, const juce::String& name)
+    void updateTrackName(int id, const juce::String& name)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        std::lock_guard<std::mutex> lock(mtx);
-        slots[slotId].trackName = name;
+        if (!isValid(id)) return;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        trackNames[id] = name;
     }
 
-    void setIsMaster(int slotId, bool isMaster)
+    void setIsMaster(int id, bool m)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].isMaster = isMaster;
+        if (!isValid(id)) return;
+        isMasterFlags[id] = m;
     }
 
-    void pushParamSnapshot(int slotId, const InstanceParamSnapshot& snap)
+    // Called from the audio thread — lock-free except for the spinlock-guarded copy
+    void pushParamSnapshot(int id, const InstanceParamSnapshot& snap)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].params = snap;
-        slots[slotId].paramVersion.fetch_add(1);
+        if (!isValid(id)) return;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        paramSnaps[id] = snap;
+        paramVersions[id].fetch_add(1, std::memory_order_release);
     }
 
-    void pushLevelSnapshot(int slotId, const InstanceLevelSnapshot& snap)
+    void pushLevelSnapshot(int id, const InstanceLevelSnapshot& snap)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].levels = snap;
+        if (!isValid(id)) return;
+        // Levels are all floats written atomically by one thread, read by UI — safe enough
+        levelSnaps[id] = snap;
     }
 
-    void pushParamsToTrack(int slotId, const InstanceParamSnapshot& snap)
+    void pushParamsToTrack(int id, const InstanceParamSnapshot& snap)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].masterPushedParams = snap;
-        slots[slotId].masterPushVersion.fetch_add(1);
-        slots[slotId].hasMasterPush.store(true);
+        if (!isValid(id)) return;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        pushedSnaps[id] = snap;
+        pushVersions[id].fetch_add(1, std::memory_order_release);
+        hasPush[id].store(true, std::memory_order_release);
     }
 
-    void setSoloFromMaster(int slotId, bool solo)
+    bool consumePushedParams(int id, InstanceParamSnapshot& outSnap, uint32_t& lastVersion)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].soloFromMaster.store(solo);
+        if (!isValid(id)) return false;
+        if (!hasPush[id].load(std::memory_order_acquire)) return false;
+
+        uint32_t ver = pushVersions[id].load(std::memory_order_acquire);
+        if (ver == lastVersion) return false;
+
+        {
+            const juce::SpinLock::ScopedLockType lock(spinLock);
+            outSnap = pushedSnaps[id];
+        }
+        lastVersion = ver;
+        hasPush[id].store(false, std::memory_order_release);
+        return true;
     }
 
-    void setMuteFromMaster(int slotId, bool mute)
+    void setSoloFromMaster(int id, bool solo)
     {
-        if (slotId < 0 || slotId >= kMaxInstances) return;
-        slots[slotId].muteFromMaster.store(mute);
+        if (!isValid(id)) return;
+        soloFlags[id].store(solo, std::memory_order_relaxed);
     }
+
+    void setMuteFromMaster(int id, bool mute)
+    {
+        if (!isValid(id)) return;
+        muteFlags[id].store(mute, std::memory_order_relaxed);
+    }
+
+    bool getSolo(int id) const { return isValid(id) && soloFlags[id].load(std::memory_order_relaxed); }
+    bool getMute(int id) const { return isValid(id) && muteFlags[id].load(std::memory_order_relaxed); }
 
     struct TrackView
     {
         int slotId = -1;
         juce::String name;
         bool isMaster = false;
-        bool alive = false;
         InstanceParamSnapshot params;
         InstanceLevelSnapshot levels;
         bool solo = false;
@@ -165,46 +165,77 @@ public:
     std::vector<TrackView> getTrackViews() const
     {
         std::vector<TrackView> views;
+        const juce::SpinLock::ScopedLockType lock(spinLock);
         for (int i = 0; i < kMaxInstances; ++i)
         {
-            if (slots[i].alive.load() && !slots[i].isMaster)
+            if (alive[i].load(std::memory_order_acquire) && !isMasterFlags[i])
             {
                 TrackView v;
                 v.slotId = i;
-                v.name = slots[i].trackName;
-                v.isMaster = slots[i].isMaster;
-                v.alive = true;
-                v.params = slots[i].params;
-                v.levels = slots[i].levels;
-                v.solo = slots[i].soloFromMaster.load();
-                v.mute = slots[i].muteFromMaster.load();
-                views.push_back(v);
+                v.name = trackNames[i];
+                v.isMaster = false;
+                v.params = paramSnaps[i];
+                v.levels = levelSnaps[i];
+                v.solo = soloFlags[i].load(std::memory_order_relaxed);
+                v.mute = muteFlags[i].load(std::memory_order_relaxed);
+                views.push_back(std::move(v));
             }
         }
         return views;
     }
 
-    bool hasMasterInstance() const
+    bool isSlotAlive(int id) const
     {
-        for (int i = 0; i < kMaxInstances; ++i)
-            if (slots[i].alive.load() && slots[i].isMaster)
-                return true;
-        return false;
+        return isValid(id) && alive[id].load(std::memory_order_acquire);
+    }
+
+    InstanceLevelSnapshot getLevels(int id) const
+    {
+        if (!isValid(id)) return {};
+        return levelSnaps[id];
+    }
+
+    InstanceParamSnapshot getParams(int id) const
+    {
+        if (!isValid(id)) return {};
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        return paramSnaps[id];
+    }
+
+    juce::String getTrackName(int id) const
+    {
+        if (!isValid(id)) return {};
+        const juce::SpinLock::ScopedLockType lock(spinLock);
+        return trackNames[id];
     }
 
     bool isAnySoloed() const
     {
         for (int i = 0; i < kMaxInstances; ++i)
-            if (slots[i].alive.load() && slots[i].soloFromMaster.load())
+            if (alive[i].load(std::memory_order_acquire) && soloFlags[i].load(std::memory_order_relaxed))
                 return true;
         return false;
     }
 
-    InstanceInfo& getSlot(int slotId) { return slots[slotId]; }
-    const InstanceInfo& getSlot(int slotId) const { return slots[slotId]; }
-
 private:
     InstanceHub() = default;
-    std::array<InstanceInfo, kMaxInstances> slots;
-    mutable std::mutex mtx;
+
+    static bool isValid(int id) { return id >= 0 && id < kMaxInstances; }
+
+    mutable juce::SpinLock spinLock;
+
+    std::array<std::atomic<bool>, kMaxInstances> alive{};
+    std::array<juce::String, kMaxInstances> trackNames;
+    std::array<bool, kMaxInstances> isMasterFlags{};
+
+    std::array<InstanceParamSnapshot, kMaxInstances> paramSnaps;
+    std::array<std::atomic<uint32_t>, kMaxInstances> paramVersions{};
+    std::array<InstanceLevelSnapshot, kMaxInstances> levelSnaps;
+
+    std::array<InstanceParamSnapshot, kMaxInstances> pushedSnaps;
+    std::array<std::atomic<uint32_t>, kMaxInstances> pushVersions{};
+    std::array<std::atomic<bool>, kMaxInstances> hasPush{};
+
+    std::array<std::atomic<bool>, kMaxInstances> soloFlags{};
+    std::array<std::atomic<bool>, kMaxInstances> muteFlags{};
 };

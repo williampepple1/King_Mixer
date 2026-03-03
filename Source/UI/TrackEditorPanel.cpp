@@ -107,12 +107,12 @@ void TrackEditorPanel::setSliderSilent(juce::Slider& s, double val)
 void TrackEditorPanel::pullFromHub()
 {
     if (selectedSlotId < 0) return;
-    auto& slot = InstanceHub::getInstance().getSlot(selectedSlotId);
-    if (!slot.alive.load()) { deselectTrack(); return; }
+    auto& hub = InstanceHub::getInstance();
+    if (!hub.isSlotAlive(selectedSlotId)) { deselectTrack(); return; }
 
-    currentSnap = slot.params;
-    currentLevels = slot.levels;
-    trackName = slot.trackName;
+    currentSnap = hub.getParams(selectedSlotId);
+    currentLevels = hub.getLevels(selectedSlotId);
+    trackName = hub.getTrackName(selectedSlotId);
 
     setSliderSilent(inputGainKnob, currentSnap.inputGain);
     setSliderSilent(outputGainKnob, currentSnap.outputGain);
@@ -211,9 +211,9 @@ void TrackEditorPanel::pushToHub()
 void TrackEditorPanel::timerCallback()
 {
     if (selectedSlotId < 0 || !isVisible()) return;
-    auto& slot = InstanceHub::getInstance().getSlot(selectedSlotId);
-    if (!slot.alive.load()) { deselectTrack(); return; }
-    currentLevels = slot.levels;
+    auto& hub = InstanceHub::getInstance();
+    if (!hub.isSlotAlive(selectedSlotId)) { deselectTrack(); return; }
+    currentLevels = hub.getLevels(selectedSlotId);
     repaint();
 }
 

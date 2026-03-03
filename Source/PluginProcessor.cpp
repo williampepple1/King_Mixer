@@ -46,7 +46,7 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     mixAmountParam    = apvts.getRawParameterValue("mixAmount");
     bypassParam       = apvts.getRawParameterValue("bypass");
 
-    instanceSlotId = InstanceHub::getInstance().registerInstance(this, trackName, false);
+    instanceSlotId = InstanceHub::getInstance().registerInstance(trackName, false);
 }
 
 AssistedMixingProcessor::~AssistedMixingProcessor()
@@ -107,29 +107,20 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     // Check for master-pushed parameter updates
     if (!masterBusMode.load() && instanceSlotId >= 0)
     {
-        auto& slot = InstanceHub::getInstance().getSlot(instanceSlotId);
-        if (slot.hasMasterPush.load())
-        {
-            uint32_t ver = slot.masterPushVersion.load();
-            if (ver != lastMasterPushVersion)
-            {
-                lastMasterPushVersion = ver;
-                InstanceParamSnapshot pushed = slot.masterPushedParams;
-                slot.hasMasterPush.store(false);
+        auto& hub = InstanceHub::getInstance();
 
-                juce::WeakReference<AssistedMixingProcessor> weakThis(this);
-                juce::MessageManager::callAsync([weakThis, pushed]() {
-                    if (auto* self = weakThis.get())
-                        self->applyParamSnapshot(pushed);
-                });
-            }
+        InstanceParamSnapshot pushed;
+        if (hub.consumePushedParams(instanceSlotId, pushed, lastMasterPushVersion))
+        {
+            const juce::SpinLock::ScopedLockType lock(pendingPushLock);
+            pendingPush = pushed;
+            hasPendingPush.store(true, std::memory_order_release);
         }
 
-        // Solo/mute from master — mute this track's output
-        auto& hub = InstanceHub::getInstance();
+        // Solo/mute from master
         bool anySoloed = hub.isAnySoloed();
-        bool thisSoloed = slot.soloFromMaster.load();
-        bool thisMuted = slot.muteFromMaster.load();
+        bool thisSoloed = hub.getSolo(instanceSlotId);
+        bool thisMuted = hub.getMute(instanceSlotId);
 
         if (thisMuted || (anySoloed && !thisSoloed))
         {
@@ -234,7 +225,7 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     outputMeter.process(buffer);
 
-    // Push snapshots to the hub for master bus visibility
+    // Push snapshots to the hub for master bus visibility (throttled)
     if (instanceSlotId >= 0)
     {
         InstanceLevelSnapshot lvl;
@@ -245,7 +236,11 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         lvl.gainReductionDB = compressor.getGainReduction();
         InstanceHub::getInstance().pushLevelSnapshot(instanceSlotId, lvl);
 
-        InstanceHub::getInstance().pushParamSnapshot(instanceSlotId, buildParamSnapshot());
+        if (++snapshotPushCounter >= 8)
+        {
+            snapshotPushCounter = 0;
+            InstanceHub::getInstance().pushParamSnapshot(instanceSlotId, buildParamSnapshot());
+        }
     }
 }
 
@@ -523,6 +518,21 @@ void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& sn
     setParam("revEqHighCut", snap.revEqHighCut);
     setParam("revEqLowCut", snap.revEqLowCut);
     setParam("mixAmount", snap.mixAmount);
+}
+
+bool AssistedMixingProcessor::consumePendingPush()
+{
+    if (!hasPendingPush.load(std::memory_order_acquire))
+        return false;
+
+    InstanceParamSnapshot snap;
+    {
+        const juce::SpinLock::ScopedLockType lock(pendingPushLock);
+        snap = pendingPush;
+        hasPendingPush.store(false, std::memory_order_release);
+    }
+    applyParamSnapshot(snap);
+    return true;
 }
 
 void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)

@@ -12,7 +12,8 @@
 class AssistedMixingEditor : public juce::AudioProcessorEditor,
                               private juce::Button::Listener,
                               private juce::ComboBox::Listener,
-                              private juce::Label::Listener
+                              private juce::Label::Listener,
+                              private juce::Timer
 {
 public:
     explicit AssistedMixingEditor(AssistedMixingProcessor&);
@@ -25,6 +26,7 @@ private:
     void buttonClicked(juce::Button* button) override;
     void comboBoxChanged(juce::ComboBox* box) override;
     void labelTextChanged(juce::Label* label) override;
+    void timerCallback() override;
     void showTab(int index);
     void applyTheme(int themeIndex);
     void rebuildTabBar();
