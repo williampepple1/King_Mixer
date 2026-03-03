@@ -6,6 +6,13 @@ static const juce::StringArray kInstrumentNames = { "Vocals", "Drums", "Bass", "
 MasterBusPanel::MasterBusPanel(juce::AudioProcessorValueTreeState& a)
     : apvts(a)
 {
+    genreBox.addItemList(kGenreNames, 1);
+    genreBox.setSelectedId(1, juce::dontSendNotification);
+    addAndMakeVisible(genreBox);
+
+    applyPresetBtn.addListener(this);
+    addAndMakeVisible(applyPresetBtn);
+
     addChildComponent(trackEditor);
     startTimerHz(15);
 }
@@ -28,6 +35,7 @@ void MasterBusPanel::timerCallback()
         s.levels = v.levels;
         s.solo = v.solo;
         s.mute = v.mute;
+        s.instrumentIndex = v.instrumentIndex;
         s.selected = (v.slotId == selectedSlot);
         if (s.selected) selectedStillAlive = true;
         strips.push_back(s);
@@ -41,6 +49,27 @@ void MasterBusPanel::timerCallback()
     }
 
     repaint();
+}
+
+void MasterBusPanel::buttonClicked(juce::Button* button)
+{
+    if (button == &applyPresetBtn)
+        applyGenrePresetToAll();
+}
+
+void MasterBusPanel::applyGenrePresetToAll()
+{
+    int genreIdx = juce::jmax(0, genreBox.getSelectedId() - 1);
+    auto genre = static_cast<Genre>(genreIdx);
+    auto& hub = InstanceHub::getInstance();
+
+    for (auto& strip : strips)
+    {
+        auto instrument = static_cast<Instrument>(strip.instrumentIndex);
+        MixRule rule = MixRuleDatabase::getRule(genre, instrument);
+        InstanceParamSnapshot snap = MixRuleHelper::ruleToSnapshot(rule, genreIdx, strip.instrumentIndex);
+        hub.pushParamsToTrack(strip.slotId, snap);
+    }
 }
 
 void MasterBusPanel::paint(juce::Graphics& g)
@@ -62,7 +91,9 @@ void MasterBusPanel::paint(juce::Graphics& g)
 
     // Header
     g.setColour(t.headerBg);
-    g.fillRect(0, 0, stripAreaW, 28);
+    g.fillRect(0, 0, stripAreaW, 58);
+
+    // Top line: title
     g.setColour(t.textBright);
     g.setFont(juce::Font(12.0f, juce::Font::bold));
     juce::String headerTxt = juce::String(strips.size()) + " track(s)";
@@ -79,7 +110,11 @@ void MasterBusPanel::paint(juce::Graphics& g)
         g.drawText("Click a track to edit it", 8, 0, stripAreaW - 16, 28, juce::Justification::centredRight);
     }
 
-    auto contentArea = juce::Rectangle<int>(0, 30, stripAreaW, getHeight() - 34);
+    // Separator below header
+    g.setColour(t.gridLine);
+    g.drawHorizontalLine(57, 0.0f, (float)stripAreaW);
+
+    auto contentArea = juce::Rectangle<int>(0, 60, stripAreaW, getHeight() - 64);
     int startX = contentArea.getX() + 4 - scrollOffset;
 
     for (size_t i = 0; i < strips.size(); ++i)
@@ -91,7 +126,6 @@ void MasterBusPanel::paint(juce::Graphics& g)
             drawTrackStrip(g, strips[i]);
     }
 
-    // Separator line when editor visible
     if (editorVisible)
     {
         g.setColour(t.accent.withAlpha(0.5f));
@@ -104,7 +138,6 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, TrackStrip& strip)
     auto& t = getThemeFrom(this);
     auto area = strip.bounds;
 
-    // Selection highlight
     if (strip.selected)
     {
         g.setColour(t.accent.withAlpha(0.15f));
@@ -131,15 +164,19 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, TrackStrip& strip)
     g.drawText(strip.name, nameArea, juce::Justification::centred);
     y += 22;
 
-    // Genre / Instrument
-    g.setColour(t.textDim);
+    // Instrument selector display
+    juce::String instrName = (strip.instrumentIndex >= 0 && strip.instrumentIndex < kInstrumentNames.size())
+                              ? kInstrumentNames[strip.instrumentIndex] : "?";
+    auto instrRect = juce::Rectangle<int>(area.getX() + 4, y, area.getWidth() - 8, 16);
+    strip.instrArea = instrRect;
+
+    g.setColour(t.accentWarm.withAlpha(0.15f));
+    g.fillRoundedRectangle(instrRect.toFloat(), 3.0f);
+    g.setColour(t.accentWarm);
+    g.drawRoundedRectangle(instrRect.toFloat(), 3.0f, 1.0f);
     g.setFont(9.0f);
-    juce::String genreName = (strip.params.genreIndex >= 0 && strip.params.genreIndex < kGenreNames.size())
-                              ? kGenreNames[strip.params.genreIndex] : "?";
-    juce::String instrName = (strip.params.instrumentIndex >= 0 && strip.params.instrumentIndex < kInstrumentNames.size())
-                              ? kInstrumentNames[strip.params.instrumentIndex] : "?";
-    g.drawText(genreName + " / " + instrName, area.getX() + 4, y, area.getWidth() - 8, 12, juce::Justification::centred);
-    y += 14;
+    g.drawText(instrName, instrRect, juce::Justification::centred);
+    y += 19;
 
     // Level meters
     int meterH = area.getHeight() - (y - area.getY()) - 90;
@@ -267,6 +304,22 @@ void MasterBusPanel::mouseDown(const juce::MouseEvent& e)
 
     for (size_t i = 0; i < strips.size(); ++i)
     {
+        // Instrument area click: show popup to change instrument
+        if (strips[i].instrArea.contains(pos))
+        {
+            juce::PopupMenu menu;
+            for (int j = 0; j < kInstrumentNames.size(); ++j)
+                menu.addItem(j + 1, kInstrumentNames[j], true, j == strips[i].instrumentIndex);
+
+            int slotId = strips[i].slotId;
+            auto safeThis = juce::Component::SafePointer<MasterBusPanel>(this);
+            menu.showMenuAsync(juce::PopupMenu::Options(), [safeThis, slotId](int result) {
+                if (safeThis == nullptr || result <= 0) return;
+                InstanceHub::getInstance().setInstrument(slotId, result - 1);
+            });
+            return;
+        }
+
         if (strips[i].soloBtn.contains(pos))
         {
             bool newSolo = !strips[i].solo;
@@ -289,7 +342,6 @@ void MasterBusPanel::mouseDown(const juce::MouseEvent& e)
         }
     }
 
-    // Click on a strip body to select it for editing
     int idx = getStripIndexAt(pos);
     if (idx >= 0)
     {
@@ -335,11 +387,18 @@ void MasterBusPanel::mouseUp(const juce::MouseEvent&)
 
 void MasterBusPanel::resized()
 {
+    int stripAreaW = editorVisible ? juce::jmax(220, getWidth() / 3) : getWidth();
+
+    // Genre selector and Apply button in the header bar (second row)
+    int comboW = juce::jmin(140, stripAreaW / 3);
+    int btnW = juce::jmin(120, stripAreaW / 3);
+    genreBox.setBounds(8, 30, comboW, 22);
+    applyPresetBtn.setBounds(comboW + 16, 30, btnW, 22);
+
     if (editorVisible)
     {
-        int stripW = juce::jmax(220, getWidth() / 3);
-        int editorW = juce::jmax(0, getWidth() - stripW - 1);
-        trackEditor.setBounds(stripW + 1, 0, editorW, getHeight());
+        int editorW = juce::jmax(0, getWidth() - stripAreaW - 1);
+        trackEditor.setBounds(stripAreaW + 1, 0, editorW, getHeight());
         trackEditor.setVisible(true);
     }
     else

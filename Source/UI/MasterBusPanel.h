@@ -3,10 +3,14 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../IPC/InstanceHub.h"
+#include "../Rules/GenreInstrumentDefs.h"
+#include "../Rules/MixRuleDatabase.h"
 #include "CustomLookAndFeel.h"
 #include "TrackEditorPanel.h"
 
-class MasterBusPanel : public juce::Component, private juce::Timer
+class MasterBusPanel : public juce::Component,
+                       private juce::Timer,
+                       private juce::Button::Listener
 {
 public:
     explicit MasterBusPanel(juce::AudioProcessorValueTreeState& apvts);
@@ -20,6 +24,9 @@ public:
 
 private:
     void timerCallback() override;
+    void buttonClicked(juce::Button* button) override;
+
+    void applyGenrePresetToAll();
 
     struct TrackStrip
     {
@@ -30,12 +37,14 @@ private:
         bool solo = false;
         bool mute = false;
         bool selected = false;
+        int instrumentIndex = 0;
 
         juce::Rectangle<int> bounds;
         juce::Rectangle<int> faderArea;
         juce::Rectangle<int> soloBtn;
         juce::Rectangle<int> muteBtn;
         juce::Rectangle<int> nameArea;
+        juce::Rectangle<int> instrArea;
     };
 
     void drawTrackStrip(juce::Graphics& g, TrackStrip& strip);
@@ -51,6 +60,10 @@ private:
     static constexpr int kStripPadding = 4;
 
     int draggingFaderStrip = -1;
+
+    // Genre preset controls
+    juce::ComboBox genreBox;
+    juce::TextButton applyPresetBtn{ "Apply Preset" };
 
     // Track editor
     TrackEditorPanel trackEditor;

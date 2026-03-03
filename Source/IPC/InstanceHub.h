@@ -63,6 +63,7 @@ public:
                 isMasterFlags[i] = isMaster;
                 soloFlags[i].store(false, std::memory_order_relaxed);
                 muteFlags[i].store(false, std::memory_order_relaxed);
+                instrumentIndices[i].store(0, std::memory_order_relaxed);
                 hasPush[i].store(false, std::memory_order_relaxed);
                 pushVersions[i].store(0, std::memory_order_relaxed);
                 paramVersions[i].store(0, std::memory_order_relaxed);
@@ -86,6 +87,18 @@ public:
         if (!isValid(id)) return;
         const juce::SpinLock::ScopedLockType lock(spinLock);
         trackNames[id] = name;
+    }
+
+    void setInstrument(int id, int instrIdx)
+    {
+        if (!isValid(id)) return;
+        instrumentIndices[id].store(juce::jlimit(0, 7, instrIdx), std::memory_order_relaxed);
+    }
+
+    int getInstrument(int id) const
+    {
+        if (!isValid(id)) return 0;
+        return instrumentIndices[id].load(std::memory_order_relaxed);
     }
 
     void setIsMaster(int id, bool m)
@@ -161,6 +174,7 @@ public:
         InstanceLevelSnapshot levels;
         bool solo = false;
         bool mute = false;
+        int instrumentIndex = 0;
     };
 
     std::vector<TrackView> getTrackViews() const
@@ -181,6 +195,7 @@ public:
                     v.levels = levelSnaps[i];
                     v.solo = soloFlags[i].load(std::memory_order_relaxed);
                     v.mute = muteFlags[i].load(std::memory_order_relaxed);
+                    v.instrumentIndex = instrumentIndices[i].load(std::memory_order_relaxed);
                     views.push_back(std::move(v));
                 }
             }
@@ -243,4 +258,6 @@ private:
 
     std::array<std::atomic<bool>, kMaxInstances> soloFlags{};
     std::array<std::atomic<bool>, kMaxInstances> muteFlags{};
+
+    std::array<std::atomic<int>, kMaxInstances> instrumentIndices{};
 };

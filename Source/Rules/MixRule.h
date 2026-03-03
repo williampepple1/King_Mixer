@@ -1,5 +1,8 @@
 #pragma once
 
+#include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
+
 struct MixRule
 {
     float inputGain  = 0.0f;   // dB
@@ -34,3 +37,10 @@ struct MixRule
     // Reverb send
     float reverbSend = -60.0f;   // dB (-60 = off)
 };
+
+struct InstanceParamSnapshot;
+
+namespace MixRuleHelper
+{
+    InstanceParamSnapshot ruleToSnapshot(const MixRule& rule, int genreIndex, int instrumentIndex);
+}

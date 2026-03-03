@@ -1,4 +1,47 @@
 #include "MixRuleDatabase.h"
+#include "../IPC/InstanceHub.h"
+
+InstanceParamSnapshot MixRuleHelper::ruleToSnapshot(const MixRule& rule, int genreIndex, int instrumentIndex)
+{
+    InstanceParamSnapshot snap;
+
+    snap.inputGain = rule.inputGain;
+    snap.outputGain = rule.outputGain;
+
+    // Band 0: Low Shelf
+    snap.eqBands[0] = { rule.eqLowFreq, rule.eqLowGain, 0.707f, 1, true };
+    // Band 1: Low-Mid Peak
+    snap.eqBands[1] = { rule.eqLowMidFreq, rule.eqLowMidGain, rule.eqLowMidQ, 0, true };
+    // Band 2: High-Mid Peak
+    snap.eqBands[2] = { rule.eqHighMidFreq, rule.eqHighMidGain, rule.eqHighMidQ, 0, true };
+    // Band 3: High Shelf
+    snap.eqBands[3] = { rule.eqHighFreq, rule.eqHighGain, 0.707f, 2, true };
+    // Bands 4-7: flat
+    for (int i = 4; i < 8; ++i)
+        snap.eqBands[i] = { 1000.0f * (float)(i - 2), 0.0f, 1.0f, 0, true };
+
+    snap.compThreshold = rule.compThreshold;
+    snap.compRatio = rule.compRatio;
+    snap.compAttack = rule.compAttack;
+    snap.compRelease = rule.compRelease;
+    snap.compMakeup = rule.compMakeup;
+
+    snap.satDrive = rule.satDrive;
+    snap.satMix = rule.satMix;
+    snap.stereoWidth = rule.stereoWidth;
+
+    if (rule.reverbSend > -59.0f)
+        snap.revMix = juce::jlimit(0.0f, 100.0f, juce::Decibels::decibelsToGain(rule.reverbSend) * 100.0f);
+    else
+        snap.revMix = 0.0f;
+
+    snap.mixAmount = 1.0f;
+    snap.bypass = false;
+    snap.genreIndex = genreIndex;
+    snap.instrumentIndex = instrumentIndex;
+
+    return snap;
+}
 
 MixRule MixRuleDatabase::getRule(Genre genre, Instrument instrument)
 {
