@@ -9,7 +9,6 @@ CompressorPanel::CompressorPanel(juce::AudioProcessorValueTreeState& a, Compress
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::Font(10.0f));
-        l.setColour(juce::Label::textColourId, KingMixerColours::textDim);
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
@@ -35,7 +34,8 @@ void CompressorPanel::timerCallback()
 
 void CompressorPanel::drawGRMeter(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg.darker(0.3f));
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg.darker(0.3f));
     g.fillRect(area);
 
     float gr = comp.getGainReduction();
@@ -43,24 +43,25 @@ void CompressorPanel::drawGRMeter(juce::Graphics& g, juce::Rectangle<int> area)
     int meterH = (int)(normalised * (float)area.getHeight());
 
     auto meterRect = area.removeFromBottom(meterH);
-    g.setColour(KingMixerColours::grMeter);
+    g.setColour(t.grMeter);
     g.fillRect(meterRect);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(10.0f);
     g.drawText(juce::String(gr, 1) + " dB", area.getX(), area.getBottom() - 16, area.getWidth(), 14,
                juce::Justification::centred);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.drawText("GR", area.getX(), area.getY() + 2, area.getWidth(), 14, juce::Justification::centred);
 }
 
 void CompressorPanel::drawGRTimeline(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg);
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg);
     g.fillRect(area);
 
-    g.setColour(KingMixerColours::gridLine);
+    g.setColour(t.gridLine);
     float zeroY = (float)area.getY() + 2.0f;
     g.drawHorizontalLine((int)zeroY, (float)area.getX(), (float)area.getRight());
 
@@ -76,26 +77,26 @@ void CompressorPanel::drawGRTimeline(juce::Graphics& g, juce::Rectangle<int> are
         else p.lineTo(x, y);
     }
 
-    g.setColour(KingMixerColours::grTimeline);
+    g.setColour(t.grTimeline);
     g.strokePath(p, juce::PathStrokeType(1.5f));
 
     p.lineTo((float)area.getRight(), (float)area.getY());
     p.lineTo((float)area.getX(), (float)area.getY());
     p.closeSubPath();
-    g.setColour(KingMixerColours::grMeter.withAlpha(0.1f));
+    g.setColour(t.grMeter.withAlpha(0.1f));
     g.fillPath(p);
 }
 
 void CompressorPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg);
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg);
     g.fillRect(area);
 
     float threshold = (float)threshSlider.getValue();
     float ratio = (float)ratioSlider.getValue();
 
-    // Grid
-    g.setColour(KingMixerColours::gridLine);
+    g.setColour(t.gridLine);
     for (int db = -60; db <= 0; db += 12)
     {
         float norm = (float)(db + 60) / 60.0f;
@@ -105,12 +106,10 @@ void CompressorPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
         g.drawHorizontalLine((int)y, (float)area.getX(), (float)area.getRight());
     }
 
-    // Unity line
-    g.setColour(KingMixerColours::textDim.withAlpha(0.3f));
+    g.setColour(t.textDim.withAlpha(0.3f));
     g.drawLine((float)area.getX(), (float)area.getBottom(),
                (float)area.getRight(), (float)area.getY(), 1.0f);
 
-    // Transfer curve
     juce::Path curve;
     for (int i = 0; i <= area.getWidth(); ++i)
     {
@@ -130,16 +129,15 @@ void CompressorPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
         else curve.lineTo(x, y);
     }
 
-    g.setColour(KingMixerColours::accent);
+    g.setColour(t.accent);
     g.strokePath(curve, juce::PathStrokeType(2.0f));
 
-    // Threshold line
     float threshNorm = (threshold + 60.0f) / 60.0f;
     float threshX = area.getX() + threshNorm * (float)area.getWidth();
-    g.setColour(KingMixerColours::accentWarm.withAlpha(0.5f));
+    g.setColour(t.accentWarm.withAlpha(0.5f));
     g.drawVerticalLine((int)threshX, (float)area.getY(), (float)area.getBottom());
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(9.0f);
     g.drawText("IN", area.getX(), area.getBottom() - 12, 20, 12, juce::Justification::centredLeft);
     g.drawText("OUT", area.getX() + 2, area.getY() + 2, 25, 12, juce::Justification::centredLeft);

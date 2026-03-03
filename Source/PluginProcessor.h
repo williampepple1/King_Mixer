@@ -64,6 +64,9 @@ public:
     WaveformBuffer& getDryRevBuffer()  { return dryRevBuffer; }
     WaveformBuffer& getWetRevBuffer()  { return wetRevBuffer; }
 
+    int getThemeIndex() const { return themeIndex.load(); }
+    void setThemeIndex(int idx) { themeIndex.store(idx); }
+
 private:
     juce::AudioProcessorValueTreeState apvts;
 
@@ -108,6 +111,8 @@ private:
     std::atomic<float>* reverbDampingParam = nullptr;
     std::atomic<float>* mixAmountParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
+
+    std::atomic<int> themeIndex{ 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AssistedMixingProcessor)
 };

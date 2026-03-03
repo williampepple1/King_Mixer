@@ -11,7 +11,6 @@ ReverbPanel::ReverbPanel(juce::AudioProcessorValueTreeState& a,
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::Font(10.0f));
-        l.setColour(juce::Label::textColourId, KingMixerColours::textDim);
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
@@ -35,7 +34,8 @@ void ReverbPanel::timerCallback()
 
 void ReverbPanel::drawDecayEnvelope(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg);
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg);
     g.fillRect(area);
 
     float roomSize = (float)roomSizeSlider.getValue();
@@ -44,19 +44,18 @@ void ReverbPanel::drawDecayEnvelope(juce::Graphics& g, juce::Rectangle<int> area
     float decayTime = 0.2f + roomSize * 2.8f;
     float dampFactor = 1.0f - damping * 0.7f;
 
-    g.setColour(KingMixerColours::gridLine);
+    g.setColour(t.gridLine);
     for (int i = 1; i <= 4; ++i)
     {
         float x = area.getX() + (float)i / 5.0f * (float)area.getWidth();
         g.drawVerticalLine((int)x, (float)area.getY(), (float)area.getBottom());
     }
 
-    // Decay envelope curve
     juce::Path envelope;
     for (int i = 0; i <= area.getWidth(); ++i)
     {
-        float t = (float)i / (float)area.getWidth() * 3.0f;
-        float amplitude = std::exp(-t / decayTime) * dampFactor;
+        float tt = (float)i / (float)area.getWidth() * 3.0f;
+        float amplitude = std::exp(-tt / decayTime) * dampFactor;
         amplitude = juce::jlimit(0.0f, 1.0f, amplitude);
 
         float x = (float)area.getX() + (float)i;
@@ -66,38 +65,37 @@ void ReverbPanel::drawDecayEnvelope(juce::Graphics& g, juce::Rectangle<int> area
         else envelope.lineTo(x, y);
     }
 
-    g.setColour(KingMixerColours::accent);
+    g.setColour(t.accent);
     g.strokePath(envelope, juce::PathStrokeType(2.0f));
 
-    // Fill under envelope
     juce::Path filled(envelope);
     filled.lineTo((float)area.getRight(), (float)area.getBottom());
     filled.lineTo((float)area.getX(), (float)area.getBottom());
     filled.closeSubPath();
-    g.setColour(KingMixerColours::accent.withAlpha(0.08f));
+    g.setColour(t.accent.withAlpha(0.08f));
     g.fillPath(filled);
 
-    // Simulated early reflections
     juce::Random rng(42);
-    g.setColour(KingMixerColours::accent.withAlpha(0.4f));
+    g.setColour(t.accent.withAlpha(0.4f));
     for (int r = 0; r < 12; ++r)
     {
-        float t = rng.nextFloat() * 0.3f;
-        float amp = std::exp(-t / decayTime) * dampFactor * (0.5f + rng.nextFloat() * 0.5f);
-        float x = area.getX() + t / 3.0f * (float)area.getWidth();
+        float rt = rng.nextFloat() * 0.3f;
+        float amp = std::exp(-rt / decayTime) * dampFactor * (0.5f + rng.nextFloat() * 0.5f);
+        float x = area.getX() + rt / 3.0f * (float)area.getWidth();
         float baseY = (float)area.getBottom();
         float h = amp * (float)area.getHeight() * 0.8f;
         g.drawLine(x, baseY, x, baseY - h, 1.5f);
     }
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(9.0f);
     g.drawText("DECAY ENVELOPE", area.getX() + 4, area.getY() + 2, 120, 12, juce::Justification::centredLeft);
 }
 
 void ReverbPanel::drawWaveformOverlay(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg.darker(0.2f));
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg.darker(0.2f));
     g.fillRect(area);
 
     auto drawWave = [&](const std::array<float, WaveformBuffer::bufferSize>& data, juce::Colour colour) {
@@ -116,13 +114,13 @@ void ReverbPanel::drawWaveformOverlay(juce::Graphics& g, juce::Rectangle<int> ar
         g.strokePath(p, juce::PathStrokeType(1.0f));
     };
 
-    drawWave(dryData, KingMixerColours::textDim.withAlpha(0.5f));
-    drawWave(wetData, KingMixerColours::accent);
+    drawWave(dryData, t.textDim.withAlpha(0.5f));
+    drawWave(wetData, t.accent);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(9.0f);
     g.drawText("DRY", area.getX() + 4, area.getY() + 2, 25, 12, juce::Justification::centredLeft);
-    g.setColour(KingMixerColours::accent);
+    g.setColour(t.accent);
     g.drawText("WET", area.getX() + 30, area.getY() + 2, 25, 12, juce::Justification::centredLeft);
 }
 

@@ -10,7 +10,6 @@ GainMixPanel::GainMixPanel(juce::AudioProcessorValueTreeState& a,
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::Font(10.0f));
-        l.setColour(juce::Label::textColourId, KingMixerColours::textDim);
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
@@ -21,7 +20,6 @@ GainMixPanel::GainMixPanel(juce::AudioProcessorValueTreeState& a,
     setupKnob(stereoWidthSlider, lblWidth, "stereoWidth");
     setupKnob(mixAmountSlider, lblMix, "mixAmount");
 
-    bypassToggle.setColour(juce::ToggleButton::textColourId, KingMixerColours::textBright);
     addAndMakeVisible(bypassToggle);
     bypassAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         apvts, "bypass", bypassToggle);
@@ -48,25 +46,26 @@ void GainMixPanel::drawStereoMeter(juce::Graphics& g, juce::Rectangle<int> area,
                                      float pL, float pR, float rL, float rR,
                                      const juce::String& label)
 {
-    g.setColour(KingMixerColours::panelBg.darker(0.3f));
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg.darker(0.3f));
     g.fillRoundedRectangle(area.toFloat(), 4.0f);
 
     int meterW = (area.getWidth() - 30) / 2;
     int meterH = area.getHeight() - 24;
 
     auto drawBar = [&](int x, int y, int w, int h, float peak, float rms) {
-        g.setColour(KingMixerColours::knobFill);
+        g.setColour(t.knobFill);
         g.fillRect(x, y, w, h);
 
         int rmsH = (int)(rms * (float)h);
         auto rmsRect = juce::Rectangle<int>(x, y + h - rmsH, w, rmsH);
-        g.setColour(KingMixerColours::meterGreen);
-        if (rms > 0.7f) g.setColour(KingMixerColours::meterYellow);
-        if (rms > 0.9f) g.setColour(KingMixerColours::meterRed);
+        g.setColour(t.meterGreen);
+        if (rms > 0.7f) g.setColour(t.meterYellow);
+        if (rms > 0.9f) g.setColour(t.meterRed);
         g.fillRect(rmsRect);
 
         int peakY = y + h - (int)(peak * (float)h);
-        g.setColour(KingMixerColours::textBright);
+        g.setColour(t.textBright);
         g.drawHorizontalLine(peakY, (float)x, (float)(x + w));
     };
 
@@ -77,13 +76,12 @@ void GainMixPanel::drawStereoMeter(juce::Graphics& g, juce::Rectangle<int> area,
     drawBar(x1, my, meterW, meterH, pL, rL);
     drawBar(x2, my, meterW, meterH, pR, rR);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(10.0f);
     g.drawText(label, area.getX(), area.getY() + 2, area.getWidth(), 14, juce::Justification::centred);
     g.drawText("L", x1, my + meterH + 2, meterW, 12, juce::Justification::centred);
     g.drawText("R", x2, my + meterH + 2, meterW, 12, juce::Justification::centred);
 
-    // dB scale
     g.setFont(8.0f);
     float dbs[] = { 0.0f, -6.0f, -12.0f, -24.0f, -48.0f };
     for (float db : dbs)
@@ -96,10 +94,11 @@ void GainMixPanel::drawStereoMeter(juce::Graphics& g, juce::Rectangle<int> area,
 
 void GainMixPanel::drawCorrelationMeter(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg.darker(0.3f));
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg.darker(0.3f));
     g.fillRoundedRectangle(area.toFloat(), 4.0f);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(10.0f);
     g.drawText("STEREO FIELD", area.getX(), area.getY() + 2, area.getWidth(), 14, juce::Justification::centred);
 
@@ -108,12 +107,11 @@ void GainMixPanel::drawCorrelationMeter(juce::Graphics& g, juce::Rectangle<int> 
     int barX = area.getX() + 10;
     int barW = area.getWidth() - 20;
 
-    g.setColour(KingMixerColours::knobFill);
+    g.setColour(t.knobFill);
     g.fillRect(barX, barY, barW, barH);
 
-    // Centre marker
     int centreX = barX + barW / 2;
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.drawVerticalLine(centreX, (float)(barY - 3), (float)(barY + barH + 3));
 
     float diffL = std::abs(outPeakL - outPeakR);
@@ -122,11 +120,11 @@ void GainMixPanel::drawCorrelationMeter(juce::Graphics& g, juce::Rectangle<int> 
     correlation = juce::jlimit(0.0f, 1.0f, correlation);
 
     int indicatorX = centreX + (int)((correlation - 0.5f) * 2.0f * (float)(barW / 2));
-    g.setColour(KingMixerColours::accent);
+    g.setColour(t.accent);
     g.fillRect(indicatorX - 3, barY - 2, 6, barH + 4);
 
     g.setFont(8.0f);
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.drawText("-1", barX, barY + barH + 4, 16, 10, juce::Justification::centred);
     g.drawText("0", centreX - 8, barY + barH + 4, 16, 10, juce::Justification::centred);
     g.drawText("+1", barX + barW - 16, barY + barH + 4, 16, 10, juce::Justification::centred);

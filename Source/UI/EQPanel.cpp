@@ -16,7 +16,6 @@ EQPanel::EQPanel(juce::AudioProcessorValueTreeState& a,
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::Font(10.0f));
-        l.setColour(juce::Label::textColourId, KingMixerColours::textDim);
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
@@ -62,7 +61,8 @@ float EQPanel::dbToY(float dB, float height) const
 
 void EQPanel::drawGrid(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::gridLine);
+    auto& t = getThemeFrom(this);
+    g.setColour(t.gridLine);
 
     float freqs[] = { 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 };
     for (float f : freqs)
@@ -70,11 +70,11 @@ void EQPanel::drawGrid(juce::Graphics& g, juce::Rectangle<int> area)
         float x = area.getX() + freqToX(f, (float)area.getWidth());
         g.drawVerticalLine((int)x, (float)area.getY(), (float)area.getBottom());
 
-        g.setColour(KingMixerColours::textDim);
+        g.setColour(t.textDim);
         g.setFont(9.0f);
         juce::String label = f >= 1000 ? juce::String((int)(f / 1000)) + "k" : juce::String((int)f);
         g.drawText(label, (int)x - 15, area.getBottom() - 14, 30, 12, juce::Justification::centred);
-        g.setColour(KingMixerColours::gridLine);
+        g.setColour(t.gridLine);
     }
 
     float dbs[] = { -18, -12, -6, 0, 6, 12, 18 };
@@ -84,9 +84,9 @@ void EQPanel::drawGrid(juce::Graphics& g, juce::Rectangle<int> area)
         g.drawHorizontalLine((int)y, (float)area.getX(), (float)area.getRight());
         if (db == 0.0f)
         {
-            g.setColour(KingMixerColours::textDim.withAlpha(0.5f));
+            g.setColour(t.textDim.withAlpha(0.5f));
             g.drawHorizontalLine((int)y, (float)area.getX(), (float)area.getRight());
-            g.setColour(KingMixerColours::gridLine);
+            g.setColour(t.gridLine);
         }
     }
 }
@@ -111,7 +111,6 @@ void EQPanel::drawSpectrum(juce::Graphics& g, juce::Rectangle<int> area,
     g.setColour(colour);
     g.strokePath(p, juce::PathStrokeType(1.5f));
 
-    // Fill under curve
     p.lineTo((float)area.getRight(), (float)area.getBottom());
     p.lineTo((float)area.getX(), (float)area.getBottom());
     p.closeSubPath();
@@ -121,6 +120,7 @@ void EQPanel::drawSpectrum(juce::Graphics& g, juce::Rectangle<int> area,
 
 void EQPanel::drawEQCurve(juce::Graphics& g, juce::Rectangle<int> area)
 {
+    auto& t = getThemeFrom(this);
     const int numPoints = 500;
     std::vector<double> freqs(numPoints);
     std::vector<double> mags(numPoints);
@@ -142,27 +142,27 @@ void EQPanel::drawEQCurve(juce::Graphics& g, juce::Rectangle<int> area)
         else curve.lineTo(x, y);
     }
 
-    g.setColour(KingMixerColours::eqCurve);
+    g.setColour(t.eqCurve);
     g.strokePath(curve, juce::PathStrokeType(2.0f));
 
-    // Filled area
     juce::Path filled(curve);
     float zeroY = area.getY() + dbToY(0.0f, (float)area.getHeight());
     filled.lineTo((float)area.getRight(), zeroY);
     filled.lineTo((float)area.getX(), zeroY);
     filled.closeSubPath();
-    g.setColour(KingMixerColours::accent.withAlpha(0.1f));
+    g.setColour(t.accent.withAlpha(0.1f));
     g.fillPath(filled);
 }
 
 void EQPanel::drawBandNodes(juce::Graphics& g, juce::Rectangle<int> area)
 {
+    auto& t = getThemeFrom(this);
     struct BandInfo { float freq; float gain; juce::Colour colour; };
     BandInfo bands[] = {
-        { (float)eqLowFreq.getValue(), (float)eqLowGain.getValue(), juce::Colour(0xffff7043) },
-        { (float)eqLowMidFreq.getValue(), (float)eqLowMidGain.getValue(), juce::Colour(0xff4fc3f7) },
-        { (float)eqHighMidFreq.getValue(), (float)eqHighMidGain.getValue(), juce::Colour(0xff66bb6a) },
-        { (float)eqHighFreq.getValue(), (float)eqHighGain.getValue(), juce::Colour(0xffffca28) }
+        { (float)eqLowFreq.getValue(), (float)eqLowGain.getValue(), t.accentWarm },
+        { (float)eqLowMidFreq.getValue(), (float)eqLowMidGain.getValue(), t.accent },
+        { (float)eqHighMidFreq.getValue(), (float)eqHighMidGain.getValue(), t.meterGreen },
+        { (float)eqHighFreq.getValue(), (float)eqHighGain.getValue(), t.meterYellow }
     };
 
     for (auto& b : bands)
@@ -223,15 +223,16 @@ void EQPanel::mouseDrag(const juce::MouseEvent& e)
 
 void EQPanel::paint(juce::Graphics& g)
 {
+    auto& t = getThemeFrom(this);
     auto area = getLocalBounds();
     auto visArea = area.removeFromTop(area.getHeight() - 160);
 
-    g.setColour(KingMixerColours::panelBg);
+    g.setColour(t.panelBg);
     g.fillRect(visArea);
 
     drawGrid(g, visArea);
-    drawSpectrum(g, visArea, preData, KingMixerColours::spectrumPre);
-    drawSpectrum(g, visArea, postData, KingMixerColours::spectrumPost);
+    drawSpectrum(g, visArea, preData, t.spectrumPre);
+    drawSpectrum(g, visArea, postData, t.spectrumPost);
     drawEQCurve(g, visArea);
     drawBandNodes(g, visArea);
 }

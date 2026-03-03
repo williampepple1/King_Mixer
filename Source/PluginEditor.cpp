@@ -28,6 +28,17 @@ AssistedMixingEditor::AssistedMixingEditor(AssistedMixingProcessor& p)
     applyRuleButton.addListener(this);
     addAndMakeVisible(applyRuleButton);
 
+    // Theme selector
+    auto themeNames = KingMixerThemes::getNames();
+    for (int i = 0; i < themeNames.size(); ++i)
+        themeBox.addItem(themeNames[i], i + 1);
+    themeBox.addListener(this);
+    addAndMakeVisible(themeBox);
+
+    int savedTheme = processorRef.getThemeIndex();
+    themeBox.setSelectedId(savedTheme + 1, juce::dontSendNotification);
+    applyTheme(savedTheme);
+
     // Tab buttons
     juce::StringArray tabNames = { "EQ", "COMP", "SAT", "REVERB", "GAIN/MIX" };
     for (int i = 0; i < NumTabs; ++i)
@@ -69,6 +80,23 @@ AssistedMixingEditor::~AssistedMixingEditor()
     setLookAndFeel(nullptr);
 }
 
+void AssistedMixingEditor::applyTheme(int themeIndex)
+{
+    customLnf.setTheme(KingMixerThemes::getByIndex(themeIndex));
+    processorRef.setThemeIndex(themeIndex);
+    repaint();
+}
+
+void AssistedMixingEditor::comboBoxChanged(juce::ComboBox* box)
+{
+    if (box == &themeBox)
+    {
+        int idx = themeBox.getSelectedId() - 1;
+        if (idx >= 0 && idx < KingMixerThemes::getCount())
+            applyTheme(idx);
+    }
+}
+
 void AssistedMixingEditor::showTab(int index)
 {
     activeTab = index;
@@ -107,28 +135,30 @@ void AssistedMixingEditor::buttonClicked(juce::Button* button)
 
 void AssistedMixingEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(KingMixerColours::background);
+    auto& t = customLnf.getTheme();
+
+    g.fillAll(t.background);
 
     // Header
-    g.setColour(KingMixerColours::headerBg);
+    g.setColour(t.headerBg);
     g.fillRect(0, 0, getWidth(), kHeaderHeight);
 
-    g.setColour(KingMixerColours::textBright);
+    g.setColour(t.textBright);
     g.setFont(juce::Font(24.0f, juce::Font::bold));
-    g.drawText("King Mixer", 12, 0, 180, kHeaderHeight, juce::Justification::centredLeft);
+    g.drawText("King Mixer", 12, 0, 150, kHeaderHeight, juce::Justification::centredLeft);
 
     // Tab bar background
     int tabY = kHeaderHeight;
-    g.setColour(KingMixerColours::tabInactive);
+    g.setColour(t.tabInactive);
     g.fillRect(0, tabY, getWidth(), kTabBarHeight);
 
     // Active tab highlight
     int tabW = getWidth() / NumTabs;
-    g.setColour(KingMixerColours::tabActive);
+    g.setColour(t.tabActive);
     g.fillRect(activeTab * tabW, tabY, tabW, kTabBarHeight);
 
     // Active tab accent line
-    g.setColour(KingMixerColours::accent);
+    g.setColour(t.accent);
     g.fillRect(activeTab * tabW, tabY + kTabBarHeight - 3, tabW, 3);
 }
 
@@ -138,10 +168,14 @@ void AssistedMixingEditor::resized()
 
     // Header
     auto header = area.removeFromTop(kHeaderHeight);
-    header.removeFromLeft(190);
-    genreBox.setBounds(header.removeFromLeft(130).reduced(4, 12));
-    instrumentBox.setBounds(header.removeFromLeft(155).reduced(4, 12));
-    applyRuleButton.setBounds(header.removeFromLeft(110).reduced(4, 12));
+    header.removeFromLeft(160);
+    genreBox.setBounds(header.removeFromLeft(120).reduced(4, 12));
+    instrumentBox.setBounds(header.removeFromLeft(140).reduced(4, 12));
+    applyRuleButton.setBounds(header.removeFromLeft(100).reduced(4, 12));
+
+    // Theme selector on the right side of the header
+    auto themeArea = header.removeFromRight(130).reduced(4, 12);
+    themeBox.setBounds(themeArea);
 
     // Tab bar
     auto tabBar = area.removeFromTop(kTabBarHeight);

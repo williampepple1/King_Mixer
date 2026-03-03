@@ -11,7 +11,6 @@ SaturationPanel::SaturationPanel(juce::AudioProcessorValueTreeState& a,
         addAndMakeVisible(s);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::Font(10.0f));
-        l.setColour(juce::Label::textColourId, KingMixerColours::textDim);
         addAndMakeVisible(l);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             apvts, paramId, s));
@@ -34,17 +33,17 @@ void SaturationPanel::timerCallback()
 
 void SaturationPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg);
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg);
     g.fillRect(area);
 
-    g.setColour(KingMixerColours::gridLine);
+    g.setColour(t.gridLine);
     g.drawLine((float)area.getX(), (float)area.getCentreY(),
                (float)area.getRight(), (float)area.getCentreY(), 0.5f);
     g.drawLine((float)area.getCentreX(), (float)area.getY(),
                (float)area.getCentreX(), (float)area.getBottom(), 0.5f);
 
-    // Unity line
-    g.setColour(KingMixerColours::textDim.withAlpha(0.2f));
+    g.setColour(t.textDim.withAlpha(0.2f));
     g.drawLine((float)area.getX(), (float)area.getBottom(),
                (float)area.getRight(), (float)area.getY(), 0.5f);
 
@@ -67,13 +66,14 @@ void SaturationPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
         else curve.lineTo(x, y);
     }
 
-    g.setColour(KingMixerColours::accentWarm);
+    g.setColour(t.accentWarm);
     g.strokePath(curve, juce::PathStrokeType(2.0f));
 }
 
 void SaturationPanel::drawWaveformComparison(juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour(KingMixerColours::panelBg.darker(0.2f));
+    auto& t = getThemeFrom(this);
+    g.setColour(t.panelBg.darker(0.2f));
     g.fillRect(area);
 
     auto drawWave = [&](const std::array<float, WaveformBuffer::bufferSize>& data, juce::Colour colour) {
@@ -92,13 +92,13 @@ void SaturationPanel::drawWaveformComparison(juce::Graphics& g, juce::Rectangle<
         g.strokePath(p, juce::PathStrokeType(1.0f));
     };
 
-    drawWave(preData, KingMixerColours::textDim.withAlpha(0.5f));
-    drawWave(postData, KingMixerColours::accentWarm);
+    drawWave(preData, t.textDim.withAlpha(0.5f));
+    drawWave(postData, t.accentWarm);
 
-    g.setColour(KingMixerColours::textDim);
+    g.setColour(t.textDim);
     g.setFont(9.0f);
     g.drawText("DRY", area.getX() + 4, area.getY() + 2, 30, 12, juce::Justification::centredLeft);
-    g.setColour(KingMixerColours::accentWarm);
+    g.setColour(t.accentWarm);
     g.drawText("WET", area.getX() + 34, area.getY() + 2, 30, 12, juce::Justification::centredLeft);
 }
 
