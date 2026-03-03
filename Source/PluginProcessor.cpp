@@ -104,7 +104,7 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (bypassParam->load() > 0.5f)
         return;
 
-    // Check for master-pushed parameter updates (non-audio-thread safe via atomics)
+    // Check for master-pushed parameter updates
     if (!masterBusMode.load() && instanceSlotId >= 0)
     {
         auto& slot = InstanceHub::getInstance().getSlot(instanceSlotId);
@@ -114,9 +114,14 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
             if (ver != lastMasterPushVersion)
             {
                 lastMasterPushVersion = ver;
+                InstanceParamSnapshot pushed = slot.masterPushedParams;
                 slot.hasMasterPush.store(false);
-                // Apply on message thread via AsyncUpdater would be ideal,
-                // but for simplicity we'll flag it and let the editor pick it up
+
+                juce::WeakReference<AssistedMixingProcessor> weakThis(this);
+                juce::MessageManager::callAsync([weakThis, pushed]() {
+                    if (auto* self = weakThis.get())
+                        self->applyParamSnapshot(pushed);
+                });
             }
         }
 
@@ -456,6 +461,19 @@ InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
     snap.revPredelay = revPredelayParam->load();
     snap.revDecay = revDecayParam->load();
     snap.revSize = revSizeParam->load();
+    snap.revDampHiFreq = revDampHiFreqParam->load();
+    snap.revDampHiShelf = revDampHiShelfParam->load();
+    snap.revDampBassFreq = revDampBassFreqParam->load();
+    snap.revDampBassMult = revDampBassMultParam->load();
+    snap.revAttack = revAttackParam->load();
+    snap.revEarlyDiff = revEarlyDiffParam->load();
+    snap.revLateDiff = revLateDiffParam->load();
+    snap.revModRate = revModRateParam->load();
+    snap.revModDepth = revModDepthParam->load();
+    snap.revEqHighCut = revEqHighCutParam->load();
+    snap.revEqLowCut = revEqLowCutParam->load();
+    snap.revMode = static_cast<int>(revModeParam->load());
+    snap.revColor = static_cast<int>(revColorParam->load());
     snap.mixAmount = mixAmountParam->load();
     snap.bypass = bypassParam->load() > 0.5f;
     snap.genreIndex = static_cast<int>(apvts.getRawParameterValue("genre")->load());
@@ -493,6 +511,17 @@ void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& sn
     setParam("revPredelay", snap.revPredelay);
     setParam("revDecay", snap.revDecay);
     setParam("revSize", snap.revSize);
+    setParam("revDampHiFreq", snap.revDampHiFreq);
+    setParam("revDampHiShelf", snap.revDampHiShelf);
+    setParam("revDampBassFreq", snap.revDampBassFreq);
+    setParam("revDampBassMult", snap.revDampBassMult);
+    setParam("revAttack", snap.revAttack);
+    setParam("revEarlyDiff", snap.revEarlyDiff);
+    setParam("revLateDiff", snap.revLateDiff);
+    setParam("revModRate", snap.revModRate);
+    setParam("revModDepth", snap.revModDepth);
+    setParam("revEqHighCut", snap.revEqHighCut);
+    setParam("revEqLowCut", snap.revEqLowCut);
     setParam("mixAmount", snap.mixAmount);
 }
 

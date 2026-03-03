@@ -51,6 +51,7 @@ target_sources(AssistedMixing
         Source/UI/ReverbPanel.cpp
         Source/UI/GainMixPanel.cpp
         Source/UI/MasterBusPanel.cpp
+        Source/UI/TrackEditorPanel.cpp
 )
 
 target_include_directories(AssistedMixing

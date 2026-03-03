@@ -6,6 +6,7 @@ static const juce::StringArray kInstrumentNames = { "Vocals", "Drums", "Bass", "
 MasterBusPanel::MasterBusPanel(juce::AudioProcessorValueTreeState& a)
     : apvts(a)
 {
+    addChildComponent(trackEditor);
     startTimerHz(15);
 }
 
@@ -14,8 +15,10 @@ MasterBusPanel::~MasterBusPanel() { stopTimer(); }
 void MasterBusPanel::timerCallback()
 {
     auto views = InstanceHub::getInstance().getTrackViews();
+    int selectedSlot = trackEditor.getSelectedSlotId();
 
     strips.clear();
+    bool selectedStillAlive = false;
     for (auto& v : views)
     {
         TrackStrip s;
@@ -26,7 +29,16 @@ void MasterBusPanel::timerCallback()
         s.solo = v.solo;
         s.mute = v.mute;
         s.alive = v.alive;
+        s.selected = (v.slotId == selectedSlot);
+        if (s.selected) selectedStillAlive = true;
         strips.push_back(s);
+    }
+
+    if (editorVisible && !selectedStillAlive)
+    {
+        trackEditor.deselectTrack();
+        editorVisible = false;
+        resized();
     }
 
     repaint();
@@ -41,20 +53,34 @@ void MasterBusPanel::paint(juce::Graphics& g)
     {
         g.setColour(t.textDim);
         g.setFont(16.0f);
+        auto msgArea = editorVisible ? getLocalBounds().removeFromLeft(getWidth() / 3) : getLocalBounds();
         g.drawText("No track instances detected.\nPlace King Mixer on individual tracks to control them from here.",
-                    getLocalBounds().reduced(40), juce::Justification::centred);
+                    msgArea.reduced(20), juce::Justification::centred);
         return;
     }
 
+    int stripAreaW = editorVisible ? juce::jmax(220, getWidth() / 3) : getWidth();
+
     // Header
     g.setColour(t.headerBg);
-    g.fillRect(0, 0, getWidth(), 28);
+    g.fillRect(0, 0, stripAreaW, 28);
     g.setColour(t.textBright);
-    g.setFont(juce::Font(13.0f, juce::Font::bold));
-    g.drawText("MASTER BUS CONTROLLER  \u2014  " + juce::String(strips.size()) + " track(s)",
-               8, 0, getWidth() - 16, 28, juce::Justification::centredLeft);
+    g.setFont(juce::Font(12.0f, juce::Font::bold));
+    juce::String headerTxt = juce::String(strips.size()) + " track(s)";
+    if (editorVisible)
+        headerTxt = "TRACKS (" + headerTxt + ")";
+    else
+        headerTxt = "MASTER BUS CONTROLLER  \u2014  " + headerTxt;
+    g.drawText(headerTxt, 8, 0, stripAreaW - 16, 28, juce::Justification::centredLeft);
 
-    auto contentArea = getLocalBounds().withTrimmedTop(30);
+    if (editorVisible)
+    {
+        g.setColour(t.textDim);
+        g.setFont(9.0f);
+        g.drawText("Click a track to edit it", 8, 0, stripAreaW - 16, 28, juce::Justification::centredRight);
+    }
+
+    auto contentArea = juce::Rectangle<int>(0, 30, stripAreaW, getHeight() - 34);
     int startX = contentArea.getX() + 4 - scrollOffset;
 
     for (size_t i = 0; i < strips.size(); ++i)
@@ -62,8 +88,15 @@ void MasterBusPanel::paint(juce::Graphics& g)
         int x = startX + (int)i * (kStripWidth + kStripPadding);
         strips[i].bounds = juce::Rectangle<int>(x, contentArea.getY(), kStripWidth, contentArea.getHeight() - 4);
 
-        if (strips[i].bounds.getRight() > 0 && strips[i].bounds.getX() < getWidth())
+        if (strips[i].bounds.getRight() > 0 && strips[i].bounds.getX() < stripAreaW)
             drawTrackStrip(g, strips[i]);
+    }
+
+    // Separator line when editor visible
+    if (editorVisible)
+    {
+        g.setColour(t.accent.withAlpha(0.5f));
+        g.drawVerticalLine(stripAreaW, 0.0f, (float)getHeight());
     }
 }
 
@@ -72,16 +105,27 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     auto& t = getThemeFrom(this);
     auto area = strip.bounds;
 
-    g.setColour(t.panelBg);
-    g.fillRoundedRectangle(area.toFloat(), 6.0f);
-    g.setColour(t.gridLine);
-    g.drawRoundedRectangle(area.toFloat(), 6.0f, 1.0f);
+    // Selection highlight
+    if (strip.selected)
+    {
+        g.setColour(t.accent.withAlpha(0.15f));
+        g.fillRoundedRectangle(area.toFloat(), 6.0f);
+        g.setColour(t.accent);
+        g.drawRoundedRectangle(area.toFloat(), 6.0f, 2.0f);
+    }
+    else
+    {
+        g.setColour(t.panelBg);
+        g.fillRoundedRectangle(area.toFloat(), 6.0f);
+        g.setColour(t.gridLine);
+        g.drawRoundedRectangle(area.toFloat(), 6.0f, 1.0f);
+    }
 
     int y = area.getY() + 4;
 
     // Track name
     auto nameArea = juce::Rectangle<int>(area.getX() + 4, y, area.getWidth() - 8, 18);
-    g.setColour(t.accent);
+    g.setColour(strip.selected ? t.accent : t.accent.withAlpha(0.8f));
     g.fillRoundedRectangle(nameArea.toFloat(), 3.0f);
     g.setColour(t.background);
     g.setFont(juce::Font(10.0f, juce::Font::bold));
@@ -98,7 +142,7 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     g.drawText(genreName + " / " + instrName, area.getX() + 4, y, area.getWidth() - 8, 12, juce::Justification::centred);
     y += 14;
 
-    // Level meters (L and R)
+    // Level meters
     int meterH = area.getHeight() - (y - area.getY()) - 90;
     if (meterH < 40) meterH = 40;
 
@@ -106,18 +150,14 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     int meterX1 = area.getX() + 8;
     int meterX2 = area.getX() + 8 + meterW + 4;
 
-    auto meterAreaL = juce::Rectangle<int>(meterX1, y, meterW, meterH);
-    auto meterAreaR = juce::Rectangle<int>(meterX2, y, meterW, meterH);
+    drawMeter(g, { meterX1, y, meterW, meterH }, strip.levels.peakL, strip.levels.rmsL, t);
+    drawMeter(g, { meterX2, y, meterW, meterH }, strip.levels.peakR, strip.levels.rmsR, t);
 
-    drawMeter(g, meterAreaL, strip.levels.peakL, strip.levels.rmsL, t);
-    drawMeter(g, meterAreaR, strip.levels.peakR, strip.levels.rmsR, t);
-
-    // Gain reduction indicator
+    // GR indicator
     int grX = meterX2 + meterW + 8;
     int grW = 8;
-    auto grArea = juce::Rectangle<int>(grX, y, grW, meterH);
     g.setColour(t.knobFill);
-    g.fillRect(grArea);
+    g.fillRect(grX, y, grW, meterH);
 
     float grNorm = juce::jlimit(0.0f, 1.0f, std::abs(strip.levels.gainReductionDB) / 30.0f);
     int grBarH = (int)(grNorm * (float)meterH);
@@ -128,12 +168,11 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     g.setFont(7.0f);
     g.drawText("GR", grX - 2, y + meterH + 1, grW + 4, 10, juce::Justification::centred);
 
-    // Key param readouts on the right side of meters
+    // Param readouts
     int infoX = grX + grW + 6;
     int infoW = area.getRight() - infoX - 4;
     if (infoW > 10)
     {
-        g.setColour(t.textDim);
         g.setFont(8.0f);
         int iy = y;
         auto drawInfo = [&](const juce::String& label, const juce::String& value) {
@@ -155,7 +194,7 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
 
     y += meterH + 12;
 
-    // Output fader area
+    // Fader
     auto faderRect = juce::Rectangle<int>(area.getX() + 8, y, area.getWidth() - 16, 16);
     const_cast<TrackStrip&>(strip).faderArea = faderRect;
     g.setColour(t.knobFill);
@@ -171,7 +210,7 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     g.drawText(juce::String(strip.params.outputGain, 1) + " dB", faderRect, juce::Justification::centred);
     y += 20;
 
-    // Solo / Mute buttons
+    // Solo / Mute
     int btnW = (area.getWidth() - 20) / 2;
     auto soloR = juce::Rectangle<int>(area.getX() + 6, y, btnW, 18);
     auto muteR = juce::Rectangle<int>(area.getX() + 10 + btnW, y, btnW, 18);
@@ -189,7 +228,6 @@ void MasterBusPanel::drawTrackStrip(juce::Graphics& g, const TrackStrip& strip)
     g.setColour(strip.mute ? t.background : t.textDim);
     g.drawText("M", muteR, juce::Justification::centred);
 
-    // Bypass indicator
     y += 22;
     if (strip.params.bypass)
     {
@@ -251,6 +289,26 @@ void MasterBusPanel::mouseDown(const juce::MouseEvent& e)
             return;
         }
     }
+
+    // Click on a strip body to select it for editing
+    int idx = getStripIndexAt(pos);
+    if (idx >= 0)
+    {
+        int slotId = strips[idx].slotId;
+        if (trackEditor.getSelectedSlotId() == slotId)
+        {
+            trackEditor.deselectTrack();
+            editorVisible = false;
+        }
+        else
+        {
+            trackEditor.selectTrack(slotId);
+            editorVisible = true;
+        }
+        resized();
+        repaint();
+        return;
+    }
 }
 
 void MasterBusPanel::mouseDrag(const juce::MouseEvent& e)
@@ -274,4 +332,16 @@ void MasterBusPanel::mouseUp(const juce::MouseEvent&)
     draggingFaderStrip = -1;
 }
 
-void MasterBusPanel::resized() {}
+void MasterBusPanel::resized()
+{
+    if (editorVisible)
+    {
+        int stripW = juce::jmax(220, getWidth() / 3);
+        trackEditor.setBounds(stripW + 1, 0, getWidth() - stripW - 1, getHeight());
+        trackEditor.setVisible(true);
+    }
+    else
+    {
+        trackEditor.setVisible(false);
+    }
+}

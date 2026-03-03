@@ -143,5 +143,6 @@ private:
     juce::String trackName{ "Track" };
     uint32_t lastMasterPushVersion = 0;
 
+    JUCE_DECLARE_WEAK_REFERENCEABLE(AssistedMixingProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AssistedMixingProcessor)
 };

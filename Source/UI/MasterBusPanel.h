@@ -4,6 +4,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../IPC/InstanceHub.h"
 #include "CustomLookAndFeel.h"
+#include "TrackEditorPanel.h"
 
 class MasterBusPanel : public juce::Component, private juce::Timer
 {
@@ -29,6 +30,7 @@ private:
         bool solo = false;
         bool mute = false;
         bool alive = false;
+        bool selected = false;
 
         juce::Rectangle<int> bounds;
         juce::Rectangle<int> faderArea;
@@ -41,7 +43,6 @@ private:
     void drawMeter(juce::Graphics& g, juce::Rectangle<int> area, float peak, float rms, const KingMixerTheme& t);
 
     int getStripIndexAt(juce::Point<int> pos) const;
-    int getFaderValueAt(const TrackStrip& strip, int y) const;
 
     juce::AudioProcessorValueTreeState& apvts;
     std::vector<TrackStrip> strips;
@@ -51,6 +52,10 @@ private:
     static constexpr int kStripPadding = 4;
 
     int draggingFaderStrip = -1;
+
+    // Track editor
+    TrackEditorPanel trackEditor;
+    bool editorVisible = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterBusPanel)
 };

@@ -23,6 +23,12 @@ struct InstanceParamSnapshot
     float stereoWidth = 0.f;
 
     float revMix = 0.f, revPredelay = 0.f, revDecay = 0.1f, revSize = 0.f;
+    float revDampHiFreq = 20000.f, revDampHiShelf = 0.f;
+    float revDampBassFreq = 20.f, revDampBassMult = 1.f;
+    float revAttack = 0.f, revEarlyDiff = 0.f, revLateDiff = 0.f;
+    float revModRate = 0.01f, revModDepth = 0.f;
+    float revEqHighCut = 20000.f, revEqLowCut = 5.f;
+    int revMode = 0, revColor = 0;
 
     float mixAmount = 0.f;
     bool bypass = false;
