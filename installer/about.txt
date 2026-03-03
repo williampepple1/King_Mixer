@@ -1,4 +1,4 @@
-Welcome to King Mixer v1.1 - Your Intelligent Mixing Command Center
+Welcome to King Mixer v1.2 - Your Intelligent Mixing Command Center
 
 King Mixer is a professional VST3 channel strip plugin designed to
 deliver world-class mix starting points in seconds. Select your genre
