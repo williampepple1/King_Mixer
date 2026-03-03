@@ -55,7 +55,6 @@ void MasterBusPanel::paint(juce::Graphics& g)
                8, 0, getWidth() - 16, 28, juce::Justification::centredLeft);
 
     auto contentArea = getLocalBounds().withTrimmedTop(30);
-    int totalWidth = (int)strips.size() * (kStripWidth + kStripPadding);
     int startX = contentArea.getX() + 4 - scrollOffset;
 
     for (size_t i = 0; i < strips.size(); ++i)
