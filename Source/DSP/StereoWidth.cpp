@@ -26,5 +26,5 @@ void StereoWidthDSP::process(juce::AudioBuffer<float>& buffer)
 
 void StereoWidthDSP::setWidth(float widthPercent)
 {
-    width = widthPercent / 100.0f;
+    width = juce::jlimit(0.0f, 200.0f, widthPercent) / 100.0f;
 }

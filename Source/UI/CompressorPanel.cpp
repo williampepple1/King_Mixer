@@ -176,7 +176,7 @@ void CompressorPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
 void CompressorPanel::paint(juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    auto visArea = area.removeFromTop(area.getHeight() - 140);
+    auto visArea = area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     auto grMeterArea = visArea.removeFromLeft(40);
     auto transferArea = visArea.removeFromRight(visArea.getHeight());
@@ -190,7 +190,7 @@ void CompressorPanel::paint(juce::Graphics& g)
 void CompressorPanel::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(area.getHeight() - 140);
+    area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     auto knobArea = area.reduced(40, 5);
     int knobW = knobArea.getWidth() / 5;

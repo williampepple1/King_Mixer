@@ -168,9 +168,11 @@ private:
 
 inline const KingMixerTheme& getThemeFrom(juce::Component* comp)
 {
+    static KingMixerTheme fallback = KingMixerThemes::charcoal();
+    if (comp == nullptr) return fallback;
+
     if (auto* lnf = dynamic_cast<CustomLookAndFeel*>(&comp->getLookAndFeel()))
         return lnf->getTheme();
 
-    static KingMixerTheme fallback = KingMixerThemes::charcoal();
     return fallback;
 }

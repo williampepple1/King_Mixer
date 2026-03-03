@@ -1,17 +1,19 @@
 #include "Saturation.h"
 #include <cmath>
 
-void Saturation::prepare(const juce::dsp::ProcessSpec& spec)
+void Saturation::prepare(const juce::dsp::ProcessSpec&)
 {
-    numChannels = static_cast<int>(spec.numChannels);
 }
 
 void Saturation::process(juce::AudioBuffer<float>& buffer)
 {
-    if (drive <= 0.001f)
+    const float driveVal = drive.load();
+    const float mixVal = mix.load();
+
+    if (driveVal <= 0.001f)
         return;
 
-    const float driveGain = 1.0f + drive * 9.0f;
+    const float driveGain = 1.0f + driveVal * 9.0f;
     float denom = std::tanh(driveGain);
     if (std::abs(denom) < 1e-6f) return;
 
@@ -22,17 +24,17 @@ void Saturation::process(juce::AudioBuffer<float>& buffer)
         {
             float dry = data[i];
             float wet = std::tanh(dry * driveGain) / denom;
-            data[i] = dry * (1.0f - mix) + wet * mix;
+            data[i] = dry * (1.0f - mixVal) + wet * mixVal;
         }
     }
 }
 
 void Saturation::setDrive(float drivePercent)
 {
-    drive = juce::jlimit(0.0f, 100.0f, drivePercent) / 100.0f;
+    drive.store(juce::jlimit(0.0f, 100.0f, drivePercent) / 100.0f);
 }
 
 void Saturation::setMix(float mixPercent)
 {
-    mix = juce::jlimit(0.0f, 100.0f, mixPercent) / 100.0f;
+    mix.store(juce::jlimit(0.0f, 100.0f, mixPercent) / 100.0f);
 }

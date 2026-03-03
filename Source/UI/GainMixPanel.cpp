@@ -50,8 +50,8 @@ void GainMixPanel::drawStereoMeter(juce::Graphics& g, juce::Rectangle<int> area,
     g.setColour(t.panelBg.darker(0.3f));
     g.fillRoundedRectangle(area.toFloat(), 4.0f);
 
-    int meterW = (area.getWidth() - 30) / 2;
-    int meterH = area.getHeight() - 24;
+    int meterW = juce::jmax(1, (area.getWidth() - 30) / 2);
+    int meterH = juce::jmax(1, area.getHeight() - 24);
 
     auto drawBar = [&](int x, int y, int w, int h, float peak, float rms) {
         g.setColour(t.knobFill);
@@ -105,7 +105,7 @@ void GainMixPanel::drawCorrelationMeter(juce::Graphics& g, juce::Rectangle<int> 
     int barY = area.getCentreY() - 4;
     int barH = 8;
     int barX = area.getX() + 10;
-    int barW = area.getWidth() - 20;
+    int barW = juce::jmax(1, area.getWidth() - 20);
 
     g.setColour(t.knobFill);
     g.fillRect(barX, barY, barW, barH);
@@ -133,7 +133,7 @@ void GainMixPanel::drawCorrelationMeter(juce::Graphics& g, juce::Rectangle<int> 
 void GainMixPanel::paint(juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    auto visArea = area.removeFromTop(area.getHeight() - 140);
+    auto visArea = area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     int meterW = (visArea.getWidth() - 40) / 2;
     int meterW2 = juce::jmin(meterW, 140);
@@ -150,7 +150,7 @@ void GainMixPanel::paint(juce::Graphics& g)
 void GainMixPanel::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(area.getHeight() - 140);
+    area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     auto knobArea = area.reduced(20, 5);
     int knobW = knobArea.getWidth() / 5;

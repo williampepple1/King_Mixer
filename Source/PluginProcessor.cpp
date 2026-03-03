@@ -108,7 +108,11 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         return;
 
     if (bypassParam && bypassParam->load() > 0.5f)
+    {
+        inputMeter.process(buffer);
+        outputMeter.process(buffer);
         return;
+    }
 
     // Check for master-pushed parameter updates
     if (!masterBusMode.load() && instanceSlotId >= 0)
@@ -160,11 +164,15 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         auto& bp = eqBandParams[i];
         if (!bp.freq || !bp.gain || !bp.q || !bp.type || !bp.enabled)
             continue;
+
+        auto* typeParam = apvts.getParameter("eqType" + juce::String(i));
+        int typeIndex = typeParam ? juce::roundToInt(typeParam->convertFrom0to1(typeParam->getValue())) : 0;
+
         parametricEQ.updateBand(i,
             bp.freq->load(),
             bp.gain->load(),
             bp.q->load(),
-            static_cast<int>(bp.type->load()),
+            typeIndex,
             bp.enabled->load() > 0.5f,
             getSampleRate());
     }
@@ -471,7 +479,10 @@ InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
         snap.eqBands[i].freq = safeLoad(bp.freq, 1000.0f);
         snap.eqBands[i].gain = safeLoad(bp.gain);
         snap.eqBands[i].q = safeLoad(bp.q, 1.0f);
-        snap.eqBands[i].type = static_cast<int>(safeLoad(bp.type));
+
+        auto* typeParam = apvts.getParameter("eqType" + juce::String(i));
+        snap.eqBands[i].type = typeParam ? juce::roundToInt(typeParam->convertFrom0to1(typeParam->getValue())) : 0;
+
         snap.eqBands[i].enabled = safeLoad(bp.enabled, 1.0f) > 0.5f;
     }
 
@@ -525,6 +536,8 @@ void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& sn
         setParam("eqFreq" + si, snap.eqBands[i].freq);
         setParam("eqGain" + si, snap.eqBands[i].gain);
         setParam("eqQ" + si, snap.eqBands[i].q);
+        setParam("eqType" + si, static_cast<float>(snap.eqBands[i].type));
+        setParam("eqOn" + si, snap.eqBands[i].enabled ? 1.0f : 0.0f);
     }
 
     setParam("compThreshold", snap.compThreshold);
@@ -550,7 +563,10 @@ void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& sn
     setParam("revModDepth", snap.revModDepth);
     setParam("revEqHighCut", snap.revEqHighCut);
     setParam("revEqLowCut", snap.revEqLowCut);
+    setParam("revMode", static_cast<float>(snap.revMode));
+    setParam("revColor", static_cast<float>(snap.revColor));
     setParam("mixAmount", snap.mixAmount);
+    setParam("bypass", snap.bypass ? 1.0f : 0.0f);
 }
 
 bool AssistedMixingProcessor::consumePendingPush()

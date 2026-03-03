@@ -37,6 +37,8 @@ void SaturationPanel::drawTransferCurve(juce::Graphics& g, juce::Rectangle<int> 
     g.setColour(t.panelBg);
     g.fillRect(area);
 
+    if (area.getWidth() <= 0 || area.getHeight() <= 0) return;
+
     g.setColour(t.gridLine);
     g.drawLine((float)area.getX(), (float)area.getCentreY(),
                (float)area.getRight(), (float)area.getCentreY(), 0.5f);
@@ -107,7 +109,7 @@ void SaturationPanel::drawWaveformComparison(juce::Graphics& g, juce::Rectangle<
 void SaturationPanel::paint(juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    auto visArea = area.removeFromTop(area.getHeight() - 140);
+    auto visArea = area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     auto transferArea = visArea.removeFromLeft(visArea.getWidth() / 2).reduced(4);
     auto waveArea = visArea.reduced(4);
@@ -119,7 +121,7 @@ void SaturationPanel::paint(juce::Graphics& g)
 void SaturationPanel::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(area.getHeight() - 140);
+    area.removeFromTop(juce::jmax(0, area.getHeight() - 140));
 
     auto knobArea = area.reduced(40, 5);
     int knobW = knobArea.getWidth() / 2;

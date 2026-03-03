@@ -58,6 +58,7 @@ private:
     void updateFilters();
 
     double sampleRate = 44100.0;
+    bool paramsDirty = true;
 
     float mixPct = 100.0f;
     float predelayMs = 20.0f;

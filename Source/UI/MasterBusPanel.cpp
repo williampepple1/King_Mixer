@@ -338,7 +338,8 @@ void MasterBusPanel::resized()
     if (editorVisible)
     {
         int stripW = juce::jmax(220, getWidth() / 3);
-        trackEditor.setBounds(stripW + 1, 0, getWidth() - stripW - 1, getHeight());
+        int editorW = juce::jmax(0, getWidth() - stripW - 1);
+        trackEditor.setBounds(stripW + 1, 0, editorW, getHeight());
         trackEditor.setVisible(true);
     }
     else

@@ -193,11 +193,11 @@ void ReverbPanel::paint(juce::Graphics& g)
     drawDecayRing(g, leftCol.reduced(10, 20));
 
     // Group boxes for the parameter sections
-    int groupW = (topArea.getWidth()) / 5;
+    int groupW = juce::jmax(10, topArea.getWidth() / 5);
     auto dampingArea = topArea.removeFromLeft(groupW + 20).reduced(3, 3);
-    auto shapeArea   = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
-    auto diffArea    = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
-    auto modArea     = topArea.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto shapeArea   = topArea.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
+    auto diffArea    = topArea.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
+    auto modArea     = topArea.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
     auto eqArea      = topArea.reduced(3, 3);
 
     drawGroupBox(g, dampingArea, "DAMPING");
@@ -236,7 +236,7 @@ void ReverbPanel::resized()
     lblDecay.setBounds(0, 0, 0, 0);
 
     // Parameter group columns
-    int groupW = (area.getWidth()) / 5;
+    int groupW = juce::jmax(10, area.getWidth() / 5);
     int knobH = 55;
     int lblH = 11;
     int knobW = 52;
@@ -282,9 +282,9 @@ void ReverbPanel::resized()
     };
 
     auto dampingArea = area.removeFromLeft(groupW + 20).reduced(3, 3);
-    auto shapeArea   = area.removeFromLeft(groupW - 10).reduced(3, 3);
-    auto diffArea    = area.removeFromLeft(groupW - 10).reduced(3, 3);
-    auto modArea     = area.removeFromLeft(groupW - 10).reduced(3, 3);
+    auto shapeArea   = area.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
+    auto diffArea    = area.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
+    auto modArea     = area.removeFromLeft(juce::jmax(0, groupW - 10)).reduced(3, 3);
     auto eqArea      = area.reduced(3, 3);
 
     layoutGroup4(dampingArea,

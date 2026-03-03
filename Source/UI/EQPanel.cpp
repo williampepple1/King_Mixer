@@ -55,26 +55,30 @@ juce::String EQPanel::getFilterTypeName(int type) const
 
 juce::Rectangle<int> EQPanel::getVisArea() const
 {
-    return getLocalBounds().removeFromTop(getHeight() - 50);
+    return getLocalBounds().removeFromTop(juce::jmax(0, getHeight() - 50));
 }
 
 float EQPanel::freqToX(float freq, float width) const
 {
+    if (width <= 0.0f || freq <= 0.0f) return 0.0f;
     return width * (std::log(freq / kMinFreq) / std::log(kMaxFreq / kMinFreq));
 }
 
 float EQPanel::xToFreq(float x, float width) const
 {
+    if (width <= 0.0f) return kMinFreq;
     return kMinFreq * std::pow(kMaxFreq / kMinFreq, x / width);
 }
 
 float EQPanel::dbToY(float dB, float height) const
 {
+    if (height <= 0.0f) return 0.0f;
     return height * (1.0f - (dB - kMinDB) / (kMaxDB - kMinDB));
 }
 
 float EQPanel::yToDB(float y, float height) const
 {
+    if (height <= 0.0f) return 0.0f;
     return kMaxDB - y / height * (kMaxDB - kMinDB);
 }
 
