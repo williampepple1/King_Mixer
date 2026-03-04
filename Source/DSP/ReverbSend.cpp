@@ -22,7 +22,8 @@ void ReverbSend::prepare(const juce::dsp::ProcessSpec& spec)
 
     paramsDirty = true;
     updateReverbParams();
-    updateFilters();
+    rebuildFilterCoeffs();
+    applyPendingCoeffs();
 }
 
 void ReverbSend::updateReverbParams()
@@ -62,28 +63,39 @@ void ReverbSend::updateReverbParams()
     reverb.setParameters(reverbParams);
 }
 
-void ReverbSend::updateFilters()
+void ReverbSend::rebuildFilterCoeffs()
 {
     if (sampleRate <= 0.0) return;
 
     float nyquist = static_cast<float>(sampleRate * 0.499);
 
-    auto hiCutCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, nyquist, eqHighCutHz));
-    highCutFilterL.coefficients = hiCutCoeffs;
-    highCutFilterR.coefficients = hiCutCoeffs;
-
-    auto loCutCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, juce::jlimit(5.0f, nyquist, eqLowCutHz));
-    lowCutFilterL.coefficients = loCutCoeffs;
-    lowCutFilterR.coefficients = loCutCoeffs;
-
-    auto dampHiCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, nyquist, dampHiFreq));
-    dampHiFilterL.coefficients = dampHiCoeffs;
-    dampHiFilterR.coefficients = dampHiCoeffs;
+    auto hiCut = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, nyquist, eqHighCutHz));
+    auto loCut = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, juce::jlimit(5.0f, nyquist, eqLowCutHz));
+    auto dampHi = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, juce::jlimit(200.0f, nyquist, dampHiFreq));
 
     float bassGain = juce::Decibels::decibelsToGain((dampBassMult - 1.0f) * 6.0f);
-    auto dampLoCoeffs = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sampleRate, juce::jlimit(20.0f, juce::jmin(2000.0f, nyquist), dampBassFreq), 0.707f, bassGain);
-    dampLoFilterL.coefficients = dampLoCoeffs;
-    dampLoFilterR.coefficients = dampLoCoeffs;
+    auto dampLo = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sampleRate, juce::jlimit(20.0f, juce::jmin(2000.0f, nyquist), dampBassFreq), 0.707f, bassGain);
+
+    {
+        const juce::SpinLock::ScopedLockType lock(coeffsLock);
+        pendingHiCut = hiCut;
+        pendingLoCut = loCut;
+        pendingDampHi = dampHi;
+        pendingDampLo = dampLo;
+        coeffsDirty = true;
+    }
+}
+
+void ReverbSend::applyPendingCoeffs()
+{
+    const juce::SpinLock::ScopedTryLockType lock(coeffsLock);
+    if (!lock.isLocked() || !coeffsDirty) return;
+
+    if (pendingHiCut)  { highCutFilterL.coefficients = pendingHiCut; highCutFilterR.coefficients = pendingHiCut; }
+    if (pendingLoCut)  { lowCutFilterL.coefficients = pendingLoCut; lowCutFilterR.coefficients = pendingLoCut; }
+    if (pendingDampHi) { dampHiFilterL.coefficients = pendingDampHi; dampHiFilterR.coefficients = pendingDampHi; }
+    if (pendingDampLo) { dampLoFilterL.coefficients = pendingDampLo; dampLoFilterR.coefficients = pendingDampLo; }
+    coeffsDirty = false;
 }
 
 void ReverbSend::process(juce::AudioBuffer<float>& buffer)
@@ -95,9 +107,9 @@ void ReverbSend::process(juce::AudioBuffer<float>& buffer)
     if (paramsDirty)
     {
         updateReverbParams();
-        updateFilters();
         paramsDirty = false;
     }
+    applyPendingCoeffs();
 
     predelayDelaySamples = juce::jlimit(0, kMaxPredelaySamples - 1, (int)(predelayMs * 0.001f * (float)sampleRate));
 
@@ -196,17 +208,17 @@ void ReverbSend::process(juce::AudioBuffer<float>& buffer)
 void ReverbSend::setMix(float pct)            { mixPct = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
 void ReverbSend::setPredelay(float ms)         { predelayMs = juce::jlimit(0.0f, 1000.0f, ms); paramsDirty = true; }
 void ReverbSend::setDecay(float seconds)       { decaySec = juce::jlimit(0.1f, 30.0f, seconds); paramsDirty = true; }
-void ReverbSend::setDampHighFreq(float hz)     { dampHiFreq = juce::jlimit(200.0f, 20000.0f, hz); paramsDirty = true; }
-void ReverbSend::setDampHighShelf(float dB)    { dampHiShelf = juce::jlimit(-48.0f, 0.0f, dB); paramsDirty = true; }
-void ReverbSend::setDampBassFreq(float hz)     { dampBassFreq = juce::jlimit(20.0f, 2000.0f, hz); paramsDirty = true; }
-void ReverbSend::setDampBassMult(float mult)   { dampBassMult = juce::jlimit(0.1f, 4.0f, mult); paramsDirty = true; }
+void ReverbSend::setDampHighFreq(float hz)     { dampHiFreq = juce::jlimit(200.0f, 20000.0f, hz); paramsDirty = true; rebuildFilterCoeffs(); }
+void ReverbSend::setDampHighShelf(float dB)    { dampHiShelf = juce::jlimit(-48.0f, 0.0f, dB); paramsDirty = true; rebuildFilterCoeffs(); }
+void ReverbSend::setDampBassFreq(float hz)     { dampBassFreq = juce::jlimit(20.0f, 2000.0f, hz); paramsDirty = true; rebuildFilterCoeffs(); }
+void ReverbSend::setDampBassMult(float mult)   { dampBassMult = juce::jlimit(0.1f, 4.0f, mult); paramsDirty = true; rebuildFilterCoeffs(); }
 void ReverbSend::setSize(float pct)            { sizePct = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
 void ReverbSend::setAttack(float pct)          { attackPct = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
 void ReverbSend::setEarlyDiffusion(float pct)  { earlyDiff = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
 void ReverbSend::setLateDiffusion(float pct)   { lateDiff = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
 void ReverbSend::setModRate(float hz)          { modRateHz = juce::jlimit(0.01f, 20.0f, hz); paramsDirty = true; }
 void ReverbSend::setModDepth(float pct)        { modDepthPct = juce::jlimit(0.0f, 100.0f, pct); paramsDirty = true; }
-void ReverbSend::setEqHighCut(float hz)        { eqHighCutHz = juce::jlimit(200.0f, 20000.0f, hz); paramsDirty = true; }
-void ReverbSend::setEqLowCut(float hz)         { eqLowCutHz = juce::jlimit(5.0f, 2000.0f, hz); paramsDirty = true; }
+void ReverbSend::setEqHighCut(float hz)        { eqHighCutHz = juce::jlimit(200.0f, 20000.0f, hz); paramsDirty = true; rebuildFilterCoeffs(); }
+void ReverbSend::setEqLowCut(float hz)         { eqLowCutHz = juce::jlimit(5.0f, 2000.0f, hz); paramsDirty = true; rebuildFilterCoeffs(); }
 void ReverbSend::setMode(int idx)              { modeIndex = juce::jlimit(0, 4, idx); paramsDirty = true; }
 void ReverbSend::setColor(int idx)             { colorIndex = juce::jlimit(0, 3, idx); paramsDirty = true; }

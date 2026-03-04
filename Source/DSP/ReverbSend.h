@@ -55,10 +55,12 @@ public:
 
 private:
     void updateReverbParams();
-    void updateFilters();
+    void rebuildFilterCoeffs();
+    void applyPendingCoeffs();
 
     double sampleRate = 44100.0;
     bool paramsDirty = true;
+    bool coeffsDirty = false;
 
     float mixPct = 100.0f;
     float predelayMs = 20.0f;
@@ -101,6 +103,10 @@ private:
     // Damping filters applied to reverb tail
     juce::dsp::IIR::Filter<float> dampHiFilterL, dampHiFilterR;
     juce::dsp::IIR::Filter<float> dampLoFilterL, dampLoFilterR;
+
+    // Pre-computed filter coefficients (computed on message thread)
+    juce::dsp::IIR::Coefficients<float>::Ptr pendingHiCut, pendingLoCut, pendingDampHi, pendingDampLo;
+    juce::SpinLock coeffsLock;
 
     // Modulation LFO state
     float lfoPhase = 0.0f;

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>King Mixer – Download</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --gold: #F5C518;
+            --gold-dark: #D4A800;
+            --gold-light: #FFF3C4;
+            --white: #FFFFFF;
+            --off-white: #FAFAF5;
+            --text: #1A1A1A;
+            --text-muted: #555;
+            --border: #E8E4D8;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+            background: var(--off-white);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            background: var(--white);
+            border-bottom: 3px solid var(--gold);
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+
+        header img {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,.08);
+        }
+
+        header h1 {
+            margin-top: .75rem;
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -.02em;
+        }
+
+        header p {
+            margin-top: .35rem;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 0 1.25rem; }
+
+        .hero {
+            text-align: center;
+            padding: 3rem 1rem 2rem;
+        }
+
+        .hero h2 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: .5rem;
+        }
+
+        .hero p {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.05rem;
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 2rem auto 3rem;
+        }
+
+        @media (max-width: 640px) {
+            .download-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: box-shadow .2s, transform .2s;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 28px rgba(0,0,0,.06);
+            transform: translateY(-2px);
+        }
+
+        .card .platform-icon {
+            font-size: 2.4rem;
+            margin-bottom: .75rem;
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: .25rem;
+        }
+
+        .card .subtitle {
+            color: var(--text-muted);
+            font-size: .92rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: .75rem 1.75rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background .2s, transform .1s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--gold);
+            color: var(--text);
+        }
+
+        .btn-primary:hover {
+            background: var(--gold-dark);
+            transform: scale(1.03);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 2px solid var(--gold);
+        }
+
+        .btn-outline:hover {
+            background: var(--gold-light);
+            transform: scale(1.03);
+        }
+
+        .card .links {
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+            align-items: center;
+        }
+
+        .card .file-note {
+            margin-top: .75rem;
+            font-size: .82rem;
+            color: var(--text-muted);
+        }
+
+        section.features {
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 3rem 1rem;
+        }
+
+        section.features h2 {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .feature {
+            padding: 1.25rem;
+            border-radius: 10px;
+            background: var(--off-white);
+            border: 1px solid var(--border);
+        }
+
+        .feature h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: .3rem;
+        }
+
+        .feature p {
+            font-size: .9rem;
+            color: var(--text-muted);
+        }
+
+        section.install {
+            padding: 3rem 1rem;
+        }
+
+        section.install h2 {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .install-steps {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .install-steps .step {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gold);
+            color: var(--text);
+            font-weight: 700;
+            font-size: .95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step-text h4 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .step-text p {
+            font-size: .9rem;
+            color: var(--text-muted);
+        }
+
+        .step-text code {
+            background: var(--gold-light);
+            padding: .15em .45em;
+            border-radius: 4px;
+            font-size: .85rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            font-size: .85rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--gold-dark);
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="Resources/icon.png" alt="King Mixer icon">
+    <h1>King Mixer</h1>
+    <p>Intelligent VST3 Channel Strip &amp; Mix Command Center</p>
+</header>
+
+<div class="container">
+
+    <section class="hero">
+        <h2>Download King Mixer v1.2</h2>
+        <p>Select your platform below. No external dependencies required — install and start mixing in seconds.</p>
+    </section>
+
+    <div class="download-grid">
+
+        <div class="card">
+            <div class="platform-icon">&#x1F5B5;</div>
+            <h3>Windows</h3>
+            <p class="subtitle">Windows 10 / 11 &bull; 64-bit &bull; VST3</p>
+            <div class="links">
+                <a class="btn btn-primary" href="KingMixerInstaller.exe" download>Download Installer</a>
+                <a class="btn btn-outline" href="KingMixer_VST3.zip" download>Download ZIP</a>
+            </div>
+            <p class="file-note">
+                <strong>Installer</strong> — auto-installs to your VST3 directory<br>
+                <strong>ZIP</strong> — extract manually to <code>C:\Program Files\Common Files\VST3\</code>
+            </p>
+        </div>
+
+        <div class="card">
+            <div class="platform-icon">&#x1F34E;</div>
+            <h3>macOS</h3>
+            <p class="subtitle">macOS 11+ &bull; Intel &amp; Apple Silicon &bull; VST3</p>
+            <div class="links">
+                <a class="btn btn-primary" href="KingMixer_macOS_VST3.zip" download>Download macOS VST3 Plugin</a>
+            </div>
+            <p class="file-note">
+                Extract and copy <strong>King Mixer.vst3</strong> to<br>
+                <code>~/Library/Audio/Plug-Ins/VST3/</code>
+            </p>
+        </div>
+
+    </div>
+
+</div>
+
+<section class="features">
+    <div class="container">
+        <h2>What's Inside</h2>
+        <div class="features-grid">
+            <div class="feature">
+                <h4>8-Band Parametric EQ</h4>
+                <p>7 filter types per band with draggable nodes on a real-time spectrum analyzer.</p>
+            </div>
+            <div class="feature">
+                <h4>Compressor</h4>
+                <p>Threshold, ratio, attack, release, and makeup gain with gain-reduction metering.</p>
+            </div>
+            <div class="feature">
+                <h4>Saturation</h4>
+                <p>Analog-style tanh waveshaper with before/after waveform comparison.</p>
+            </div>
+            <div class="feature">
+                <h4>Advanced Reverb</h4>
+                <p>5 modes, 4 color presets, damping, diffusion, modulation, and output EQ.</p>
+            </div>
+            <div class="feature">
+                <h4>Master Bus Controller</h4>
+                <p>Manage every track from one window — solo, mute, adjust gain, and remote-edit parameters.</p>
+            </div>
+            <div class="feature">
+                <h4>64 Mix Presets</h4>
+                <p>8 genres &times; 8 instruments — professional starting points in one click.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="install">
+    <div class="container">
+        <h2>Installation Guide</h2>
+        <div class="install-steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                    <h4>Windows — Installer</h4>
+                    <p>Run <code>KingMixerInstaller.exe</code> and follow the wizard. The VST3 plugin is installed to your system VST3 directory automatically.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                    <h4>Windows — ZIP</h4>
+                    <p>Extract <code>KingMixer_VST3.zip</code> and copy the <code>King Mixer.vst3</code> folder to <code>C:\Program Files\Common Files\VST3\</code>.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                    <h4>macOS</h4>
+                    <p>Extract <code>KingMixer_macOS_VST3.zip</code> and copy the <code>King Mixer.vst3</code> folder to <code>~/Library/Audio/Plug-Ins/VST3/</code>.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-text">
+                    <h4>Rescan in your DAW</h4>
+                    <p>Open your DAW and rescan for new plugins. King Mixer will appear under your VST3 instruments or effects list.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p>King Mixer v1.2 &bull; Built with <a href="https://juce.com" target="_blank" rel="noopener">JUCE</a> &bull; <a href="https://github.com/williampepple1/Assisted_Mixing" target="_blank" rel="noopener">Source on GitHub</a></p>
+</footer>
+
+</body>
+</html>
