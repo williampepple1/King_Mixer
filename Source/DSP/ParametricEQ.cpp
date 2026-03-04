@@ -53,6 +53,7 @@ void ParametricEQ::process(juce::AudioBuffer<float>& buffer)
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
 
+    const juce::SpinLock::ScopedLockType lock(stateLock);
     for (int i = 0; i < kMaxBands; ++i)
     {
         if (bands[i].active && bands[i].coeffs)
@@ -66,21 +67,26 @@ void ParametricEQ::updateBand(int index, float freq, float gain, float q, int ty
         return;
 
     currentSampleRate = sampleRate;
-    auto& st = bandStates[static_cast<size_t>(index)];
-    st.frequency = freq;
-    st.gainDB = gain;
-    st.q = q;
-    st.filterType = type;
-    st.enabled = enabled;
 
     auto c = makeCoeffs(static_cast<EQFilterType>(type), sampleRate, freq, gain, q);
-    if (c)
+
     {
-        bands[static_cast<size_t>(index)].coeffs = c;
-        if (bands[static_cast<size_t>(index)].filter.state)
-            *bands[static_cast<size_t>(index)].filter.state = *c;
+        const juce::SpinLock::ScopedLockType lock(stateLock);
+        auto& st = bandStates[static_cast<size_t>(index)];
+        st.frequency = freq;
+        st.gainDB = gain;
+        st.q = q;
+        st.filterType = type;
+        st.enabled = enabled;
+
+        if (c)
+        {
+            bands[static_cast<size_t>(index)].coeffs = c;
+            if (bands[static_cast<size_t>(index)].filter.state)
+                *bands[static_cast<size_t>(index)].filter.state = *c;
+        }
+        bands[static_cast<size_t>(index)].active = enabled;
     }
-    bands[static_cast<size_t>(index)].active = enabled;
 }
 
 void ParametricEQ::updateBands(float lowFreq, float lowGain,
@@ -106,6 +112,7 @@ void ParametricEQ::getMagnitudeResponse(const double* frequencies, double* magni
     if (sampleRate <= 0.0)
         return;
 
+    const juce::SpinLock::ScopedLockType lock(stateLock);
     for (int b = 0; b < kMaxBands; ++b)
     {
         if (!bands[b].active || !bands[b].coeffs)
@@ -126,6 +133,7 @@ void ParametricEQ::getBandMagnitudeResponse(int bandIndex, const double* frequen
     if (bandIndex < 0 || bandIndex >= kMaxBands || sampleRate <= 0.0)
         return;
 
+    const juce::SpinLock::ScopedLockType lock(stateLock);
     if (!bands[bandIndex].active || !bands[bandIndex].coeffs)
         return;
 

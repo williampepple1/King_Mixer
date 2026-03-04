@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
 #include <array>
 #include <atomic>
 
@@ -13,9 +14,8 @@ public:
     void copyTo(std::array<float, bufferSize>& dest) const;
 
 private:
-    std::array<float, bufferSize> bufferA{};
-    std::array<float, bufferSize> bufferB{};
-    std::atomic<int> writePos{ 0 };
-    std::atomic<int> activeBuffer{ 0 };
-    std::atomic<bool> snapshotReady{ false };
+    std::array<float, bufferSize> writeBuffer{};
+    std::array<float, bufferSize> readBuffer{};
+    int writePos = 0;
+    mutable juce::SpinLock snapLock;
 };

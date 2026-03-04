@@ -24,9 +24,11 @@ private:
     juce::dsp::WindowingFunction<float> window;
 
     std::array<float, fftSize * 2> fftStaging{};
+    std::array<float, fftSize * 2> fftReady{};
     std::array<float, fftSize * 2> fftWork{};
     int fifoIndex = 0;
     std::array<float, fftSize> fifo{};
+    juce::SpinLock stagingLock;
     std::atomic<bool> nextBlockReady{ false };
     double sampleRate = 44100.0;
 };

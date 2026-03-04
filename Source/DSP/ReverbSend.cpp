@@ -91,10 +91,14 @@ void ReverbSend::applyPendingCoeffs()
     const juce::SpinLock::ScopedTryLockType lock(coeffsLock);
     if (!lock.isLocked() || !coeffsDirty) return;
 
-    if (pendingHiCut)  { highCutFilterL.coefficients = pendingHiCut; highCutFilterR.coefficients = pendingHiCut; }
-    if (pendingLoCut)  { lowCutFilterL.coefficients = pendingLoCut; lowCutFilterR.coefficients = pendingLoCut; }
-    if (pendingDampHi) { dampHiFilterL.coefficients = pendingDampHi; dampHiFilterR.coefficients = pendingDampHi; }
-    if (pendingDampLo) { dampLoFilterL.coefficients = pendingDampLo; dampLoFilterR.coefficients = pendingDampLo; }
+    auto dup = [](const juce::dsp::IIR::Coefficients<float>::Ptr& c) {
+        return new juce::dsp::IIR::Coefficients<float>(*c);
+    };
+
+    if (pendingHiCut)  { highCutFilterL.coefficients = pendingHiCut; highCutFilterR.coefficients = dup(pendingHiCut); }
+    if (pendingLoCut)  { lowCutFilterL.coefficients = pendingLoCut; lowCutFilterR.coefficients = dup(pendingLoCut); }
+    if (pendingDampHi) { dampHiFilterL.coefficients = pendingDampHi; dampHiFilterR.coefficients = dup(pendingDampHi); }
+    if (pendingDampLo) { dampLoFilterL.coefficients = pendingDampLo; dampLoFilterR.coefficients = dup(pendingDampLo); }
     coeffsDirty = false;
 }
 

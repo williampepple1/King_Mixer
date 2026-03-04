@@ -229,7 +229,7 @@ void EQPanel::drawBandNodes(juce::Graphics& g, juce::Rectangle<int> area)
 {
     for (int i = 0; i < ParametricEQ::kMaxBands; ++i)
     {
-        auto& st = eq.getBandState(i);
+        auto st = eq.getBandState(i);
         if (!st.enabled) continue;
 
         auto colour = getBandColour(i);
@@ -264,7 +264,7 @@ void EQPanel::drawBandInfo(juce::Graphics& g, juce::Rectangle<int> area)
 
     for (int i = 0; i < ParametricEQ::kMaxBands; ++i)
     {
-        auto& st = eq.getBandState(i);
+        auto st = eq.getBandState(i);
         auto colour = getBandColour(i);
         int cellW = area.getWidth() / ParametricEQ::kMaxBands;
         auto cell = juce::Rectangle<int>(area.getX() + i * cellW, area.getY(), cellW, area.getHeight());
@@ -298,7 +298,7 @@ int EQPanel::findNearestBand(float x, float y, juce::Rectangle<int> area)
     float bestDist = 22.0f;
     for (int i = 0; i < ParametricEQ::kMaxBands; ++i)
     {
-        auto& st = eq.getBandState(i);
+        auto st = eq.getBandState(i);
         if (!st.enabled) continue;
 
         float bx = area.getX() + freqToX(st.frequency, (float)area.getWidth());
@@ -354,7 +354,7 @@ void EQPanel::mouseDrag(const juce::MouseEvent& e)
     if (auto* p = apvts.getParameter("eqFreq" + si))
         p->setValueNotifyingHost(p->convertTo0to1(freq));
 
-    auto& st = eq.getBandState(dragBand);
+    auto st = eq.getBandState(dragBand);
     if (st.filterType != (int)EQFilterType::LowCut && st.filterType != (int)EQFilterType::HighCut)
     {
         if (auto* p = apvts.getParameter("eqGain" + si))
@@ -400,7 +400,7 @@ void EQPanel::showBandContextMenu(int bandIdx)
 {
     juce::PopupMenu menu;
     auto si = juce::String(bandIdx);
-    auto& st = eq.getBandState(bandIdx);
+    auto st = eq.getBandState(bandIdx);
 
     menu.addItem(1, st.enabled ? "Disable Band" : "Enable Band");
     menu.addSeparator();

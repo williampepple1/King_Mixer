@@ -2,6 +2,7 @@
 
 #include <juce_dsp/juce_dsp.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
 #include <array>
 #include <mutex>
 
@@ -41,9 +42,10 @@ public:
 
     double getCurrentSampleRate() const { return currentSampleRate; }
 
-    const EQBandState& getBandState(int index) const
+    EQBandState getBandState(int index) const
     {
         int i = juce::jlimit(0, kMaxBands - 1, index);
+        const juce::SpinLock::ScopedLockType lock(stateLock);
         return bandStates[static_cast<size_t>(i)];
     }
 
@@ -67,6 +69,7 @@ private:
 
     std::array<BandProcessor, kMaxBands> bands;
     std::array<EQBandState, kMaxBands> bandStates;
+    mutable juce::SpinLock stateLock;
     double currentSampleRate = 44100.0;
 
     Coeffs::Ptr makeCoeffs(EQFilterType type, double sampleRate, float freq, float gain, float q) const;

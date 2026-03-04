@@ -19,6 +19,10 @@ void SpectrumAnalyzer::pushSamples(const float* data, int numSamples)
         {
             std::copy(fifo.begin(), fifo.end(), fftStaging.begin());
             std::fill(fftStaging.begin() + fftSize, fftStaging.end(), 0.0f);
+            {
+                const juce::SpinLock::ScopedLockType lock(stagingLock);
+                std::copy(fftStaging.begin(), fftStaging.end(), fftReady.begin());
+            }
             nextBlockReady.store(true, std::memory_order_release);
             fifoIndex = 0;
         }
@@ -30,7 +34,10 @@ bool SpectrumAnalyzer::getNextBlock(std::array<float, scopeSize>& output)
     if (!nextBlockReady.exchange(false, std::memory_order_acq_rel))
         return false;
 
-    std::copy(fftStaging.begin(), fftStaging.end(), fftWork.begin());
+    {
+        const juce::SpinLock::ScopedLockType lock(stagingLock);
+        std::copy(fftReady.begin(), fftReady.end(), fftWork.begin());
+    }
 
     window.multiplyWithWindowingTable(fftWork.data(), fftSize);
     forwardFFT.performFrequencyOnlyForwardTransform(fftWork.data());
