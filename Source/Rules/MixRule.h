@@ -37,10 +37,3 @@ struct MixRule
     // Reverb send
     float reverbSend = -60.0f;   // dB (-60 = off)
 };
-
-struct InstanceParamSnapshot;
-
-namespace MixRuleHelper
-{
-    InstanceParamSnapshot ruleToSnapshot(const MixRule& rule, int genreIndex, int instrumentIndex);
-}

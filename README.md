@@ -5,12 +5,12 @@
 <h1 align="center">King Mixer</h1>
 
 <p align="center">
-  <strong>Intelligent VST3 Channel Strip &amp; Mix Command Center</strong>
+  <strong>Intelligent VST3 Channel Strip Plugin</strong>
 </p>
 
 ---
 
-A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets based on genre and instrument selection. Place it on every track in your DAW, then use the **Master Bus Controller** to manage your entire mix from one window.
+A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets based on genre and instrument selection. Place it on any track in your DAW for instant, professional-quality processing.
 
 ## Features
 
@@ -32,14 +32,6 @@ A JUCE-based VST3 channel strip plugin that applies rule-based mixing presets ba
 - **Stereo Width** (mid-side processing)
 
 - **Input/Output Gain Staging** with stereo VU meters and correlation meter
-
-- **Master Bus Controller**
-  - Place King Mixer on each track and on the master bus
-  - See all track instances with live level meters, gain reduction, and parameter readouts
-  - Solo (S) and Mute (M) any track from the master
-  - Click any track to open a full remote parameter editor
-  - Every edit from the master propagates instantly to the child instance
-  - Editable track names for easy identification
 
 - **64 curated mix presets** (8 genres x 8 instruments) based on professional mixing conventions
 
@@ -95,21 +87,17 @@ To install the VST3 manually, copy the `.vst3` folder to:
 
 ## Usage
 
-1. Insert **King Mixer** on a track and give it a name
+1. Insert **King Mixer** on a track
 2. Select the **Genre** and **Instrument**
 3. Click **Apply Rule** to load recommended settings
 4. Fine-tune using the tabbed interface (EQ, Comp, Sat, Reverb, Gain/Mix)
-5. For master control: place King Mixer on the master bus, enable **Master**, and open the **MASTER** tab
-6. Click any track strip to open a full remote editor — changes propagate instantly
 
 ## Project Structure
 
 ```
 Source/
-  PluginProcessor.h/.cpp       - Audio processor, DSP chain, APVTS, IPC integration
+  PluginProcessor.h/.cpp       - Audio processor, DSP chain, APVTS
   PluginEditor.h/.cpp          - Tabbed UI with header controls and theme selector
-  IPC/
-    InstanceHub.h              - Process-wide singleton for inter-instance communication
   DSP/
     GainStage.h/.cpp           - Input/output gain
     ParametricEQ.h/.cpp        - 8-band parametric EQ with 7 filter types
@@ -132,8 +120,6 @@ Source/
     SaturationPanel.h/.cpp     - Waveshaper curve and waveform comparison
     ReverbPanel.h/.cpp         - Reverb controls with decay ring and waveform overlay
     GainMixPanel.h/.cpp        - VU meters and stereo correlation
-    MasterBusPanel.h/.cpp      - Master bus controller with track strips
-    TrackEditorPanel.h/.cpp    - Remote parameter editor for child instances
 ```
 
 ## License

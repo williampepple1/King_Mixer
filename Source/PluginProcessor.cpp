@@ -45,15 +45,10 @@ AssistedMixingProcessor::AssistedMixingProcessor()
     revColorParam        = apvts.getRawParameterValue("revColor");
     mixAmountParam    = apvts.getRawParameterValue("mixAmount");
     bypassParam       = apvts.getRawParameterValue("bypass");
-
-    instanceSlotId = InstanceHub::getInstance().registerInstance(trackName, false);
-    juce::ignoreUnused(instanceSlotId);
 }
 
 AssistedMixingProcessor::~AssistedMixingProcessor()
 {
-    cancelPendingUpdate();
-    InstanceHub::getInstance().unregisterInstance(instanceSlotId);
 }
 
 const juce::String AssistedMixingProcessor::getName() const { return JucePlugin_Name; }
@@ -115,33 +110,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         return;
     }
 
-    // Check for master-pushed parameter updates
-    if (!masterBusMode.load() && instanceSlotId >= 0)
-    {
-        auto& hub = InstanceHub::getInstance();
-
-        InstanceParamSnapshot pushed;
-        if (hub.consumePushedParams(instanceSlotId, pushed, lastMasterPushVersion))
-        {
-            const juce::SpinLock::ScopedLockType lock(pendingPushLock);
-            pendingPush = pushed;
-            hasPendingPush.store(true, std::memory_order_release);
-            triggerAsyncUpdate();
-        }
-
-        // Solo/mute from master
-        bool anySoloed = hub.isAnySoloed();
-        bool thisSoloed = hub.getSolo(instanceSlotId);
-        bool thisMuted = hub.getMute(instanceSlotId);
-
-        if (thisMuted || (anySoloed && !thisSoloed))
-        {
-            buffer.clear();
-            outputMeter.process(buffer);
-            return;
-        }
-    }
-
     const float mix = mixAmountParam->load();
 
     if (mix < 1.0f)
@@ -157,7 +125,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     gainStage.setGainDB(inputGainParam->load());
     gainStage.process(buffer);
 
-    // Pre-EQ spectrum
     if (buffer.getNumChannels() > 0)
         preEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
@@ -180,7 +147,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     }
     parametricEQ.process(buffer);
 
-    // Post-EQ spectrum
     if (buffer.getNumChannels() > 0)
         postEQAnalyzer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
@@ -193,7 +159,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     }
     compressor.process(buffer);
 
-    // Pre-saturation waveform
     if (buffer.getNumChannels() > 0)
         preSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
@@ -201,14 +166,12 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (satMixParam) saturation.setMix(satMixParam->load());
     saturation.process(buffer);
 
-    // Post-saturation waveform
     if (buffer.getNumChannels() > 0)
         postSatBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
     if (stereoWidthParam) stereoWidth.setWidth(stereoWidthParam->load());
     stereoWidth.process(buffer);
 
-    // Pre-reverb waveform
     if (buffer.getNumChannels() > 0)
         dryRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
@@ -231,7 +194,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     if (revColorParam) reverbSend.setColor(static_cast<int>(revColorParam->load()));
     reverbSend.process(buffer);
 
-    // Post-reverb waveform
     if (buffer.getNumChannels() > 0)
         wetRevBuffer.pushSamples(buffer.getReadPointer(0), buffer.getNumSamples());
 
@@ -250,24 +212,6 @@ void AssistedMixingProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     }
 
     outputMeter.process(buffer);
-
-    // Push snapshots to the hub for master bus visibility (throttled)
-    if (instanceSlotId >= 0)
-    {
-        InstanceLevelSnapshot lvl;
-        lvl.peakL = outputMeter.getPeakL();
-        lvl.peakR = outputMeter.getPeakR();
-        lvl.rmsL = outputMeter.getRmsL();
-        lvl.rmsR = outputMeter.getRmsR();
-        lvl.gainReductionDB = compressor.getGainReduction();
-        InstanceHub::getInstance().pushLevelSnapshot(instanceSlotId, lvl);
-
-        if (++snapshotPushCounter >= 8)
-        {
-            snapshotPushCounter = 0;
-            InstanceHub::getInstance().pushParamSnapshot(instanceSlotId, buildParamSnapshot());
-        }
-    }
 }
 
 void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
@@ -281,7 +225,6 @@ void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
 
     setParam("inputGain", rule.inputGain);
     setParam("outputGain", rule.outputGain);
-    // Map 4 legacy rule bands to first 4 of the 8 bands
     setParam("eqFreq0", rule.eqLowFreq);
     setParam("eqGain0", rule.eqLowGain);
     setParam("eqFreq1", rule.eqLowMidFreq);
@@ -292,7 +235,6 @@ void AssistedMixingProcessor::applyRule(Genre genre, Instrument instrument)
     setParam("eqQ2", rule.eqHighMidQ);
     setParam("eqFreq3", rule.eqHighFreq);
     setParam("eqGain3", rule.eqHighGain);
-    // Reset bands 4-7 to flat
     for (int i = 4; i < 8; ++i)
         setParam("eqGain" + juce::String(i), 0.0f);
     setParam("compThreshold", rule.compThreshold);
@@ -335,9 +277,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
         "outputGain", "Output Gain",
         juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
 
-    // 8-band EQ
     float defaultFreqs[] = { 80.0f, 250.0f, 700.0f, 1500.0f, 3000.0f, 5000.0f, 8000.0f, 12000.0f };
-    int defaultTypes[] = { 1, 0, 0, 0, 0, 0, 0, 2 }; // LowShelf, Peak x6, HighShelf
+    int defaultTypes[] = { 1, 0, 0, 0, 0, 0, 0, 2 };
     for (int i = 0; i < 8; ++i)
     {
         auto si = juce::String(i);
@@ -385,7 +326,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
         "stereoWidth", "Stereo Width",
         juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 0.0f, "%"));
 
-    // Reverb — all defaults zeroed so user must set them
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "revMix", "Rev Mix",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -441,165 +381,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout AssistedMixingProcessor::cre
     return { params.begin(), params.end() };
 }
 
-void AssistedMixingProcessor::setMasterBusMode(bool isMaster)
-{
-    masterBusMode.store(isMaster);
-    if (instanceSlotId >= 0)
-        InstanceHub::getInstance().setIsMaster(instanceSlotId, isMaster);
-}
-
-void AssistedMixingProcessor::setTrackName(const juce::String& name)
-{
-    {
-        const juce::SpinLock::ScopedLockType lock(trackNameLock);
-        trackName = name;
-    }
-    if (instanceSlotId >= 0)
-        InstanceHub::getInstance().updateTrackName(instanceSlotId, name);
-}
-
-void AssistedMixingProcessor::updateTrackProperties(const TrackProperties& properties)
-{
-    if (properties.name.isNotEmpty())
-        setTrackName(properties.name);
-}
-
-InstanceParamSnapshot AssistedMixingProcessor::buildParamSnapshot() const
-{
-    InstanceParamSnapshot snap;
-
-    auto safeLoad = [](const std::atomic<float>* p, float fallback = 0.0f) {
-        return p ? p->load() : fallback;
-    };
-
-    snap.inputGain = safeLoad(inputGainParam);
-    snap.outputGain = safeLoad(outputGainParam);
-
-    for (int i = 0; i < 8; ++i)
-    {
-        auto& bp = eqBandParams[i];
-        snap.eqBands[i].freq = safeLoad(bp.freq, 1000.0f);
-        snap.eqBands[i].gain = safeLoad(bp.gain);
-        snap.eqBands[i].q = safeLoad(bp.q, 1.0f);
-
-        auto* typeParam = apvts.getParameter("eqType" + juce::String(i));
-        snap.eqBands[i].type = typeParam ? juce::roundToInt(typeParam->convertFrom0to1(typeParam->getValue())) : 0;
-
-        snap.eqBands[i].enabled = safeLoad(bp.enabled, 1.0f) > 0.5f;
-    }
-
-    snap.compThreshold = safeLoad(compThresholdParam, -20.0f);
-    snap.compRatio = safeLoad(compRatioParam, 2.0f);
-    snap.compAttack = safeLoad(compAttackParam, 10.0f);
-    snap.compRelease = safeLoad(compReleaseParam, 100.0f);
-    snap.compMakeup = safeLoad(compMakeupParam);
-    snap.satDrive = safeLoad(satDriveParam);
-    snap.satMix = safeLoad(satMixParam, 50.0f);
-    snap.stereoWidth = safeLoad(stereoWidthParam);
-    snap.revMix = safeLoad(revMixParam);
-    snap.revPredelay = safeLoad(revPredelayParam);
-    snap.revDecay = safeLoad(revDecayParam, 0.1f);
-    snap.revSize = safeLoad(revSizeParam);
-    snap.revDampHiFreq = safeLoad(revDampHiFreqParam, 20000.0f);
-    snap.revDampHiShelf = safeLoad(revDampHiShelfParam);
-    snap.revDampBassFreq = safeLoad(revDampBassFreqParam, 20.0f);
-    snap.revDampBassMult = safeLoad(revDampBassMultParam, 1.0f);
-    snap.revAttack = safeLoad(revAttackParam);
-    snap.revEarlyDiff = safeLoad(revEarlyDiffParam);
-    snap.revLateDiff = safeLoad(revLateDiffParam);
-    snap.revModRate = safeLoad(revModRateParam, 0.01f);
-    snap.revModDepth = safeLoad(revModDepthParam);
-    snap.revEqHighCut = safeLoad(revEqHighCutParam, 20000.0f);
-    snap.revEqLowCut = safeLoad(revEqLowCutParam, 5.0f);
-    snap.revMode = static_cast<int>(safeLoad(revModeParam));
-    snap.revColor = static_cast<int>(safeLoad(revColorParam));
-    snap.mixAmount = safeLoad(mixAmountParam);
-    snap.bypass = safeLoad(bypassParam) > 0.5f;
-    if (auto* gp = apvts.getRawParameterValue("genre"))
-        snap.genreIndex = static_cast<int>(gp->load());
-    if (auto* ip = apvts.getRawParameterValue("instrument"))
-        snap.instrumentIndex = static_cast<int>(ip->load());
-    return snap;
-}
-
-void AssistedMixingProcessor::applyParamSnapshot(const InstanceParamSnapshot& snap)
-{
-    auto setParam = [&](const juce::String& id, float value) {
-        auto* p = apvts.getParameter(id);
-        if (p) p->setValueNotifyingHost(p->convertTo0to1(value));
-    };
-
-    setParam("inputGain", snap.inputGain);
-    setParam("outputGain", snap.outputGain);
-
-    for (int i = 0; i < 8; ++i)
-    {
-        auto si = juce::String(i);
-        setParam("eqFreq" + si, snap.eqBands[i].freq);
-        setParam("eqGain" + si, snap.eqBands[i].gain);
-        setParam("eqQ" + si, snap.eqBands[i].q);
-        setParam("eqType" + si, static_cast<float>(snap.eqBands[i].type));
-        setParam("eqOn" + si, snap.eqBands[i].enabled ? 1.0f : 0.0f);
-    }
-
-    setParam("compThreshold", snap.compThreshold);
-    setParam("compRatio", snap.compRatio);
-    setParam("compAttack", snap.compAttack);
-    setParam("compRelease", snap.compRelease);
-    setParam("compMakeup", snap.compMakeup);
-    setParam("satDrive", snap.satDrive);
-    setParam("satMix", snap.satMix);
-    setParam("stereoWidth", snap.stereoWidth);
-    setParam("revMix", snap.revMix);
-    setParam("revPredelay", snap.revPredelay);
-    setParam("revDecay", snap.revDecay);
-    setParam("revSize", snap.revSize);
-    setParam("revDampHiFreq", snap.revDampHiFreq);
-    setParam("revDampHiShelf", snap.revDampHiShelf);
-    setParam("revDampBassFreq", snap.revDampBassFreq);
-    setParam("revDampBassMult", snap.revDampBassMult);
-    setParam("revAttack", snap.revAttack);
-    setParam("revEarlyDiff", snap.revEarlyDiff);
-    setParam("revLateDiff", snap.revLateDiff);
-    setParam("revModRate", snap.revModRate);
-    setParam("revModDepth", snap.revModDepth);
-    setParam("revEqHighCut", snap.revEqHighCut);
-    setParam("revEqLowCut", snap.revEqLowCut);
-    setParam("revMode", static_cast<float>(snap.revMode));
-    setParam("revColor", static_cast<float>(snap.revColor));
-    setParam("mixAmount", snap.mixAmount);
-    setParam("bypass", snap.bypass ? 1.0f : 0.0f);
-}
-
-bool AssistedMixingProcessor::consumePendingPush()
-{
-    if (!hasPendingPush.load(std::memory_order_acquire))
-        return false;
-
-    InstanceParamSnapshot snap;
-    {
-        const juce::SpinLock::ScopedLockType lock(pendingPushLock);
-        snap = pendingPush;
-        hasPendingPush.store(false, std::memory_order_release);
-    }
-    applyParamSnapshot(snap);
-    return true;
-}
-
-void AssistedMixingProcessor::handleAsyncUpdate()
-{
-    consumePendingPush();
-}
-
 void AssistedMixingProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty("uiTheme", themeIndex.load(), nullptr);
-    state.setProperty("isMasterBus", masterBusMode.load() ? 1 : 0, nullptr);
-    {
-        const juce::SpinLock::ScopedLockType lock(trackNameLock);
-        state.setProperty("trackName", trackName, nullptr);
-    }
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -611,13 +396,6 @@ void AssistedMixingProcessor::setStateInformation(const void* data, int sizeInBy
     {
         auto newState = juce::ValueTree::fromXml(*xml);
         themeIndex.store((int)newState.getProperty("uiTheme", 0));
-
-        bool wasMaster = (int)newState.getProperty("isMasterBus", 0) != 0;
-        setMasterBusMode(wasMaster);
-
-        juce::String savedName = newState.getProperty("trackName", "Track").toString();
-        setTrackName(savedName);
-
         apvts.replaceState(newState);
     }
 }

@@ -1,11 +1,9 @@
-Welcome to King Mixer v1.2 - Your Intelligent Mixing Command Center
+Welcome to King Mixer v1.2 - Your Intelligent Channel Strip Plugin
 
 King Mixer is a professional VST3 channel strip plugin designed to
 deliver world-class mix starting points in seconds. Select your genre
 and instrument, click Apply Rule, and King Mixer configures every
-parameter to match industry-standard mixing practices. Place it on
-every track, then use the Master Bus Controller to manage your
-entire mix from a single window.
+parameter to match industry-standard mixing practices.
 
 FEATURES:
 
@@ -39,14 +37,6 @@ FEATURES:
 
   - Input / Output Gain Staging with stereo VU meters
 
-  - Master Bus Controller
-      Place King Mixer on tracks and on the master bus
-      See all track instances with live level meters
-      Solo (S) and Mute (M) any track from the master
-      Adjust output gain faders per track remotely
-      View key parameters for every track at a glance
-      Editable track names for easy identification
-
   - 5 Selectable UI Themes
       Charcoal (default), Midnight, Mocha, Royal Gold, Arctic
 
@@ -62,14 +52,10 @@ SUPPORTED INSTRUMENTS:
 HOW TO USE:
 
   1. Load King Mixer as a VST3 plugin on any track in your DAW
-  2. Give each instance a name (click the track name in the header)
-  3. Select the Genre and Instrument from the dropdowns
-  4. Click "Apply Rule" to load recommended settings
-  5. Fine-tune using the interactive EQ, compressor, saturation,
+  2. Select the Genre and Instrument from the dropdowns
+  3. Click "Apply Rule" to load recommended settings
+  4. Fine-tune using the interactive EQ, compressor, saturation,
      reverb, and gain controls across the tabbed interface
-  6. For master bus control: place King Mixer on the master bus,
-     enable the "Master" toggle, and open the MASTER tab to see
-     and control all track instances from one place
 
 64 curated mix presets (8 genres x 8 instruments) are built in,
 each one crafted from professional mixing best practices.

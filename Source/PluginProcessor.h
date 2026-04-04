@@ -14,10 +14,8 @@
 #include "Analysis/SpectrumAnalyzer.h"
 #include "Analysis/LevelMeter.h"
 #include "Analysis/WaveformBuffer.h"
-#include "IPC/InstanceHub.h"
 
-class AssistedMixingProcessor : public juce::AudioProcessor,
-                                 private juce::AsyncUpdater
+class AssistedMixingProcessor : public juce::AudioProcessor
 {
 public:
     AssistedMixingProcessor();
@@ -49,8 +47,6 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    void updateTrackProperties(const TrackProperties& properties) override;
-
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
     void applyRule(Genre genre, Instrument instrument);
@@ -72,23 +68,7 @@ public:
     int getThemeIndex() const { return themeIndex.load(); }
     void setThemeIndex(int idx) { themeIndex.store(idx); }
 
-    // IPC — inter-instance communication
-    int getInstanceSlotId() const { return instanceSlotId; }
-    bool isMasterBus() const { return masterBusMode.load(); }
-    void setMasterBusMode(bool isMaster);
-    juce::String getTrackName() const
-    {
-        const juce::SpinLock::ScopedLockType lock(trackNameLock);
-        return trackName;
-    }
-    void setTrackName(const juce::String& name);
-    InstanceParamSnapshot buildParamSnapshot() const;
-    void applyParamSnapshot(const InstanceParamSnapshot& snap);
-    bool consumePendingPush();
-
 private:
-    void handleAsyncUpdate() override;
-
     juce::AudioProcessorValueTreeState apvts;
 
     GainStage gainStage;
@@ -147,21 +127,7 @@ private:
 
     std::atomic<int> themeIndex{ 0 };
 
-    // IPC state
-    int instanceSlotId = -1;
-    std::atomic<bool> masterBusMode{ false };
-    mutable juce::SpinLock trackNameLock;
-    juce::String trackName{ "Track" };
-    uint32_t lastMasterPushVersion = 0;
-    int snapshotPushCounter = 0;
-
-    // Pre-allocated dry buffer for wet/dry mixing (avoids allocation on audio thread)
     juce::AudioBuffer<float> dryBuffer;
-
-    // Pending master push — consumed on message thread by the editor timer
-    juce::SpinLock pendingPushLock;
-    InstanceParamSnapshot pendingPush;
-    std::atomic<bool> hasPendingPush{ false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AssistedMixingProcessor)
 };
